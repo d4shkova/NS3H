@@ -1,7 +1,29 @@
 import { BrowserWindow, ipcMain, type WebContents } from 'electron';
 import { IpcChannel } from '@shared/ipc.js';
 import type { OpenSessionResult, SshTarget } from '@shared/types.js';
+import type { Credential, Folder, Host, Settings } from '@shared/config.js';
 import { SessionManager } from '../sessions/manager.js';
+import { secrets } from '../secrets/index.js';
+import { ConfigService, type CredentialSecrets } from '../store/index.js';
+import { normaliseCredential } from '../store/credentials.js';
+import { normaliseFolder, normaliseHost } from '../store/hosts.js';
+
+let configService: ConfigService | null = null;
+
+function config(): ConfigService {
+  configService ??= new ConfigService(secrets());
+  return configService;
+}
+
+/** The renderer is sandboxed, so anything it sends is normalised before it is stored. */
+function parseSecrets(raw: unknown): CredentialSecrets | undefined {
+  if (typeof raw !== 'object' || raw === null) return undefined;
+  const input = raw as CredentialSecrets;
+  const result: CredentialSecrets = {};
+  if (typeof input.password === 'string') result.password = input.password;
+  if (typeof input.passphrase === 'string') result.passphrase = input.passphrase;
+  return Object.keys(result).length > 0 ? result : undefined;
+}
 
 /**
  * One SessionManager per renderer. The renderer is sandboxed, so every argument
@@ -42,7 +64,57 @@ function parseTarget(raw: unknown): SshTarget {
   return { ...target, name: target.name || target.address };
 }
 
+function registerConfigIpc(): void {
+  ipcMain.handle(IpcChannel.configLoad, () => config().snapshot());
+
+  ipcMain.handle(IpcChannel.configSaveHost, (_event, raw: unknown, rawSecrets: unknown) => {
+    const host = normaliseHost(raw);
+    if (!host) throw new Error('host is missing an id');
+    return config().saveHost(host as Host, parseSecrets(rawSecrets));
+  });
+
+  ipcMain.handle(IpcChannel.configDeleteHost, (_event, hostId: unknown) =>
+    config().deleteHost(requireString(hostId, 'hostId')),
+  );
+
+  ipcMain.handle(IpcChannel.configSaveFolder, (_event, raw: unknown) => {
+    const folder = normaliseFolder(raw);
+    if (!folder) throw new Error('folder is missing an id');
+    return config().saveFolder(folder as Folder);
+  });
+
+  ipcMain.handle(IpcChannel.configDeleteFolder, (_event, folderId: unknown) =>
+    config().deleteFolder(requireString(folderId, 'folderId')),
+  );
+
+  ipcMain.handle(
+    IpcChannel.configSaveCredential,
+    (_event, raw: unknown, rawSecrets: unknown) => {
+      const credential = normaliseCredential(raw);
+      if (!credential) throw new Error('credential is missing an id');
+      return config().saveCredential(credential as Credential, parseSecrets(rawSecrets));
+    },
+  );
+
+  ipcMain.handle(IpcChannel.configDeleteCredential, (_event, credentialId: unknown) =>
+    config().deleteCredential(requireString(credentialId, 'credentialId')),
+  );
+
+  ipcMain.handle(IpcChannel.configSaveSettings, (_event, patch: unknown) => {
+    if (typeof patch !== 'object' || patch === null) throw new Error('settings patch must be an object');
+    return config().saveSettings(patch as Partial<Settings>);
+  });
+}
+
 export function registerIpc(): void {
+  registerConfigIpc();
+
+  ipcMain.handle(IpcChannel.sessionOpenHost, async (event, hostId: unknown) => {
+    const target = await config().resolveTarget(requireString(hostId, 'hostId'));
+    if (!target) throw new Error('That host cannot be opened as an SSH session.');
+    return { sessionId: managerFor(event.sender).openSsh(target) };
+  });
+
   ipcMain.handle(IpcChannel.sessionOpenSsh, (event, raw): OpenSessionResult => {
     const sessionId = managerFor(event.sender).openSsh(parseTarget(raw));
     return { sessionId };

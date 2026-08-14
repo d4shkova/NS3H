@@ -8,13 +8,13 @@ See [`NS3H-design-spec.md`](./NS3H-design-spec.md) for the full brief.
 
 ## Status
 
-Phases 0 and 1 of the build order are in place.
+Phases 0 through 2 of the build order are in place.
 
 | Phase | Scope | State |
 |---|---|---|
 | 0 | Scaffold: electron-vite, TS, IPC bridge, window chrome, design tokens | done |
 | 1 | SSH core: algorithm ladder, auth, host key trust, xterm.js wiring | done |
-| 2 | Config store: JSON files, migrations, `safeStorage` secrets | not started |
+| 2 | Config store: JSON files, migrations, `safeStorage` secrets | done |
 | 3 | Hosts and Credentials UI | not started |
 | 4 | Logging: sanitiser, writer, folder rules, header block | not started |
 | 5+ | Telnet, serial, tabs/splits, log browser, quick connect, SFTP, export, packaging | not started |
@@ -24,7 +24,23 @@ password / public-key / keyboard-interactive authentication with inline re-promp
 trust-on-first-use with a changed-key comparison modal, and a live xterm.js session with a WebGL
 renderer.
 
+Config, credentials, and settings persist in `~/.config/ns3h/` (or the platform equivalent), with
+secrets held in the OS keychain via `safeStorage`. There is no UI over them yet — that is phase 3
+— but the IPC surface is in place and `session.openHost(id)` connects a saved host, resolving its
+credential and secret in the main process.
+
 Sessions are not yet written to disk — that is phase 4.
+
+## Secrets and the keychain
+
+Passwords and key passphrases go to the OS keychain (Keychain / DPAPI / libsecret) and land in
+`secrets.enc`. Private keys are never copied — only the path to them is stored.
+
+When no keychain is available — a minimal Linux desktop with no keyring running — Electron's
+fallback is barely-obfuscated plaintext. NS3H refuses to write in that case rather than implying a
+security property it cannot deliver: `snapshot().secrets` reports it with a reason for the UI to
+show, and affected sessions prompt for the credential instead. On KDE that means `kwallet`, on
+GNOME `gnome-keyring`.
 
 ## Running it
 
@@ -98,7 +114,8 @@ that need real devices:
 src/
   main/        Electron main process — all ssh2/net/fs work lives here
     ssh/       algorithm policy, retry ladder, host key identity, error classification
-    store/     JSON config on disk (known-hosts today, the rest in phase 2)
+    store/     hosts, credentials, settings, known-hosts — versioned JSON, atomic writes
+    secrets/   safeStorage wrapper over secrets.enc
     sessions/  per-renderer session registry and prompt correlation
     ipc/       typed channel handlers
   preload/     contextBridge API, sandboxed

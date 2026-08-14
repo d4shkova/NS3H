@@ -1,6 +1,15 @@
 /** Channel names for the preload bridge. Keep every string in one place. */
 export const IpcChannel = {
   // renderer → main (invoke)
+  configLoad: 'config:load',
+  configSaveHost: 'config:save-host',
+  configDeleteHost: 'config:delete-host',
+  configSaveFolder: 'config:save-folder',
+  configDeleteFolder: 'config:delete-folder',
+  configSaveCredential: 'config:save-credential',
+  configDeleteCredential: 'config:delete-credential',
+  configSaveSettings: 'config:save-settings',
+  sessionOpenHost: 'session:open-host',
   sessionOpenSsh: 'session:open-ssh',
   sessionWrite: 'session:write',
   sessionResize: 'session:resize',

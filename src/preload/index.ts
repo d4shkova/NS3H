@@ -22,7 +22,22 @@ function subscribe<T>(channel: string, handler: (payload: T) => void): Unsubscri
 const api: Ns3hApi = {
   platform: () => ipcRenderer.invoke(IpcChannel.platformInfo) as Promise<{ platform: string }>,
 
+  config: {
+    load: () => ipcRenderer.invoke(IpcChannel.configLoad),
+    saveHost: (host, secrets) => ipcRenderer.invoke(IpcChannel.configSaveHost, host, secrets),
+    deleteHost: (hostId) => ipcRenderer.invoke(IpcChannel.configDeleteHost, hostId),
+    saveFolder: (folder) => ipcRenderer.invoke(IpcChannel.configSaveFolder, folder),
+    deleteFolder: (folderId) => ipcRenderer.invoke(IpcChannel.configDeleteFolder, folderId),
+    saveCredential: (credential, secrets) =>
+      ipcRenderer.invoke(IpcChannel.configSaveCredential, credential, secrets),
+    deleteCredential: (credentialId) =>
+      ipcRenderer.invoke(IpcChannel.configDeleteCredential, credentialId),
+    saveSettings: (patch) => ipcRenderer.invoke(IpcChannel.configSaveSettings, patch),
+  },
+
   session: {
+    openHost: (hostId: string) =>
+      ipcRenderer.invoke(IpcChannel.sessionOpenHost, hostId) as Promise<OpenSessionResult>,
     openSsh: (target: SshTarget) =>
       ipcRenderer.invoke(IpcChannel.sessionOpenSsh, target) as Promise<OpenSessionResult>,
     write: (sessionId: string, data: string) =>
