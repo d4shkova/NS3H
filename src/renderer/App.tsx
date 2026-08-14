@@ -3,6 +3,9 @@ import { useSessions } from './stores/sessions.js';
 import { TitleBar } from './components/TitleBar/TitleBar.js';
 import { Sidebar } from './components/Sidebar/Sidebar.js';
 import { ConnectForm } from './components/Forms/ConnectForm.js';
+import { HostForm } from './components/Forms/HostForm.js';
+import { CredentialForm } from './components/Forms/CredentialForm.js';
+import { useConfig } from './stores/config.js';
 import { TerminalPane } from './components/Terminal/TerminalPane.js';
 import { HostKeyModal } from './components/Modals/HostKeyModal.js';
 import { StatusBar } from './components/StatusBar/StatusBar.js';
@@ -23,10 +26,15 @@ export function App(): JSX.Element {
   const hostKeyPrompt = useSessions((state) => state.hostKeyPrompt);
   const setHostKeyPrompt = useSessions((state) => state.setHostKeyPrompt);
   const setAuthPrompt = useSessions((state) => state.setAuthPrompt);
+  const connectError = useSessions((state) => state.connectError);
+  const clearConnectError = useSessions((state) => state.clearConnectError);
+  const view = useConfig((state) => state.view);
+  const loadConfig = useConfig((state) => state.load);
 
   useEffect(() => {
     void window.ns3h.platform().then(({ platform }) => setIsMac(platform === 'darwin'));
-  }, []);
+    void loadConfig();
+  }, [loadConfig]);
 
   useEffect(() => {
     const offHostKey = window.ns3h.hostKey.onPrompt(setHostKeyPrompt);
@@ -120,7 +128,23 @@ export function App(): JSX.Element {
             {tabs.map((tab) => (
               <TerminalPane key={tab.id} tab={tab} active={tab.id === activeId} />
             ))}
-            {!activeTab && <ConnectForm />}
+            {!activeTab && (
+              <>
+                {connectError && (
+                  <p className={styles.connectError} role="alert" onClick={clearConnectError}>
+                    {connectError}
+                  </p>
+                )}
+                {view.kind === 'quick' && <ConnectForm />}
+                {view.kind === 'host-form' && <HostForm key={view.host?.id ?? 'new'} host={view.host} />}
+                {view.kind === 'credential-form' && (
+                  <CredentialForm
+                    key={view.credential?.id ?? 'new'}
+                    credential={view.credential}
+                  />
+                )}
+              </>
+            )}
           </div>
         </main>
       </div>

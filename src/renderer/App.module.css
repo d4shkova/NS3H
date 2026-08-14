@@ -92,3 +92,19 @@
   min-height: 0;
   position: relative;
 }
+
+.connectError {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+  max-width: 560px;
+  color: var(--status-warn);
+  background: var(--bg-elevated);
+  border: 1px solid var(--status-warn);
+  border-radius: var(--radius-md);
+  padding: 10px 14px;
+  line-height: 1.5;
+  cursor: pointer;
+}

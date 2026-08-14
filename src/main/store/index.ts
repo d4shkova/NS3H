@@ -163,6 +163,11 @@ export class ConfigService {
 
   private async writeSecrets(ownerId: string, secrets?: CredentialSecrets): Promise<void> {
     if (!secrets) return;
+    // With no keychain the secret cannot be stored, but the host or credential itself
+    // still should be — failing the whole save would leave the record on disk and the
+    // UI unaware of it. The snapshot's `secrets` status is what tells the user, and
+    // the forms warn before submit.
+    if (!this.secrets.status().available) return;
     for (const kind of ['password', 'passphrase'] as const) {
       const value = secrets[kind];
       if (value === undefined) continue; // unchanged

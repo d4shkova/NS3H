@@ -58,6 +58,17 @@
   color: var(--text-secondary);
 }
 
+.error {
+  color: var(--status-error);
+  border: 1px solid var(--status-error);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  margin: 8px 0;
+  font-size: 12px;
+  line-height: 1.5;
+  cursor: pointer;
+}
+
 .resizer {
   width: 4px;
   cursor: col-resize;

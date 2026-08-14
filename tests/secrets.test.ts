@@ -153,6 +153,27 @@ describe('ConfigService', () => {
     });
   });
 
+  it('still saves the record when there is no keychain to store its secret', async () => {
+    const service = new ConfigService(
+      new SecretsStore(join(dir, 'secrets.enc'), fakeVault(false)),
+      dir,
+    );
+
+    const snapshot = await service.saveHost(
+      host({
+        inlineCredential: { type: 'password', username: 'cisco', keyPath: null, hasPassphrase: false },
+      }),
+      { password: 'enable' },
+    );
+
+    expect(snapshot.hosts.hosts).toHaveLength(1);
+    expect(snapshot.secrets.available).toBe(false);
+    expect((await service.resolveTarget('hst_1'))?.auth).toEqual({
+      kind: 'prompt',
+      username: 'cisco',
+    });
+  });
+
   it('stores an inline credential secret under the host id', async () => {
     const secrets = new SecretsStore(join(dir, 'secrets.enc'), fakeVault());
     const service = new ConfigService(secrets, dir);

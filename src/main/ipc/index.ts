@@ -4,7 +4,7 @@ import type { OpenSessionResult, SshTarget } from '@shared/types.js';
 import type { Credential, Folder, Host, Settings } from '@shared/config.js';
 import { SessionManager } from '../sessions/manager.js';
 import { secrets } from '../secrets/index.js';
-import { ConfigService, type CredentialSecrets } from '../store/index.js';
+import { ConfigService, newConfigId, type CredentialSecrets } from '../store/index.js';
 import { normaliseCredential } from '../store/credentials.js';
 import { normaliseFolder, normaliseHost } from '../store/hosts.js';
 
@@ -64,11 +64,20 @@ function parseTarget(raw: unknown): SshTarget {
   return { ...target, name: target.name || target.address };
 }
 
+/** New records arrive without an id; minting them in main keeps ids off the renderer. */
+function withId(raw: unknown, prefix: 'hst' | 'crd' | 'fld'): unknown {
+  if (typeof raw !== 'object' || raw === null) throw new Error('expected an object');
+  const record = raw as { id?: unknown };
+  return typeof record.id === 'string' && record.id.length > 0
+    ? raw
+    : { ...record, id: newConfigId(prefix) };
+}
+
 function registerConfigIpc(): void {
   ipcMain.handle(IpcChannel.configLoad, () => config().snapshot());
 
   ipcMain.handle(IpcChannel.configSaveHost, (_event, raw: unknown, rawSecrets: unknown) => {
-    const host = normaliseHost(raw);
+    const host = normaliseHost(withId(raw, 'hst'));
     if (!host) throw new Error('host is missing an id');
     return config().saveHost(host as Host, parseSecrets(rawSecrets));
   });
@@ -78,7 +87,7 @@ function registerConfigIpc(): void {
   );
 
   ipcMain.handle(IpcChannel.configSaveFolder, (_event, raw: unknown) => {
-    const folder = normaliseFolder(raw);
+    const folder = normaliseFolder(withId(raw, 'fld'));
     if (!folder) throw new Error('folder is missing an id');
     return config().saveFolder(folder as Folder);
   });
@@ -90,7 +99,7 @@ function registerConfigIpc(): void {
   ipcMain.handle(
     IpcChannel.configSaveCredential,
     (_event, raw: unknown, rawSecrets: unknown) => {
-      const credential = normaliseCredential(raw);
+      const credential = normaliseCredential(withId(raw, 'crd'));
       if (!credential) throw new Error('credential is missing an id');
       return config().saveCredential(credential as Credential, parseSecrets(rawSecrets));
     },

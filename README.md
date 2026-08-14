@@ -8,14 +8,14 @@ See [`NS3H-design-spec.md`](./NS3H-design-spec.md) for the full brief.
 
 ## Status
 
-Phases 0 through 2 of the build order are in place.
+Phases 0 through 3 of the build order are in place.
 
 | Phase | Scope | State |
 |---|---|---|
 | 0 | Scaffold: electron-vite, TS, IPC bridge, window chrome, design tokens | done |
 | 1 | SSH core: algorithm ladder, auth, host key trust, xterm.js wiring | done |
 | 2 | Config store: JSON files, migrations, `safeStorage` secrets | done |
-| 3 | Hosts and Credentials UI | not started |
+| 3 | Hosts and Credentials UI: tree, forms, folders | done |
 | 4 | Logging: sanitiser, writer, folder rules, header block | not started |
 | 5+ | Telnet, serial, tabs/splits, log browser, quick connect, SFTP, export, packaging | not started |
 
@@ -24,10 +24,13 @@ password / public-key / keyboard-interactive authentication with inline re-promp
 trust-on-first-use with a changed-key comparison modal, and a live xterm.js session with a WebGL
 renderer.
 
-Config, credentials, and settings persist in `~/.config/ns3h/` (or the platform equivalent), with
-secrets held in the OS keychain via `safeStorage`. There is no UI over them yet — that is phase 3
-— but the IPC surface is in place and `session.openHost(id)` connects a saved host, resolving its
-credential and secret in the main process.
+Saved hosts and credentials have full CRUD from the sidebar: a folder tree with search, a
+credentials list, and add/edit forms with inline per-field validation. Double-click a host to
+connect — its credential and secret are resolved in the main process, never handed to the
+renderer. Config persists in `~/.config/ns3h/` (or the platform equivalent), with secrets in the
+OS keychain via `safeStorage`.
+
+Telnet and serial hosts can be saved and edited now; connecting them arrives in phase 5.
 
 Sessions are not yet written to disk — that is phase 4.
 

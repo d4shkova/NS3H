@@ -5,6 +5,7 @@ import type {
   SessionStatus,
   SshTarget,
 } from '@shared/types.js';
+import type { Host } from '@shared/config.js';
 
 export interface SessionTab {
   id: string;
@@ -28,6 +29,9 @@ interface SessionState {
 
   setSection: (section: SidebarSection) => void;
   connect: (target: SshTarget) => Promise<void>;
+  connectHost: (host: Host) => Promise<void>;
+  connectError: string | null;
+  clearConnectError: () => void;
   setActive: (id: string) => void;
   closeTab: (id: string) => void;
   applyStatus: (id: string, status: SessionStatus, detail?: string, summary?: string) => void;
@@ -41,8 +45,39 @@ export const useSessions = create<SessionState>((set, get) => ({
   section: 'quick',
   hostKeyPrompt: null,
   authPrompts: {},
+  connectError: null,
 
   setSection: (section) => set({ section }),
+  clearConnectError: () => set({ connectError: null }),
+
+  connectHost: async (host) => {
+    if (host.protocol !== 'ssh') {
+      set({
+        connectError: `${host.name} is a ${host.protocol} host. Telnet and serial connect in phase 5 — the host is saved and ready for it.`,
+      });
+      return;
+    }
+    try {
+      const { sessionId } = await window.ns3h.session.openHost(host.id);
+      set((state) => ({
+        connectError: null,
+        tabs: [
+          ...state.tabs,
+          {
+            id: sessionId,
+            name: host.name,
+            address: host.address ?? '',
+            port: host.port ?? 22,
+            username: '',
+            status: 'connecting',
+          },
+        ],
+        activeId: sessionId,
+      }));
+    } catch (cause) {
+      set({ connectError: (cause as Error).message });
+    }
+  },
 
   connect: async (target) => {
     const { sessionId } = await window.ns3h.session.openSsh(target);
