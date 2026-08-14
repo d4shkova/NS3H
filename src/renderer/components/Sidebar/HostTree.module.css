@@ -28,6 +28,38 @@
   border-color: var(--border-focus);
 }
 
+.newFolder {
+  margin-bottom: 12px;
+  padding: 9px;
+  border: 1px solid var(--border-focus);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
+}
+
+.newFolder input {
+  font-size: 12px;
+  padding: 6px 8px;
+}
+
+.newFolderActions {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.confirm {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+  font-weight: 600;
+}
+
+.confirm:hover {
+  background: var(--accent-hover);
+  color: #fff;
+  border-color: var(--accent-hover);
+}
+
 .tree {
   display: flex;
   flex-direction: column;

@@ -29,6 +29,7 @@ export function App(): JSX.Element {
   const connectError = useSessions((state) => state.connectError);
   const clearConnectError = useSessions((state) => state.clearConnectError);
   const view = useConfig((state) => state.view);
+  const setView = useConfig((state) => state.setView);
   const loadConfig = useConfig((state) => state.load);
 
   useEffect(() => {
@@ -67,6 +68,12 @@ export function App(): JSX.Element {
   }, [onDragMove]);
 
   const activeTab = tabs.find((tab) => tab.id === activeId) ?? null;
+  /**
+   * A form takes over the main pane even while a session is open — the session keeps
+   * running in its tab (and, from phase 4, keeps logging), and clicking the tab
+   * returns to it.
+   */
+  const showForm = view.kind !== 'quick';
 
   return (
     <div className={styles.app}>
@@ -92,12 +99,20 @@ export function App(): JSX.Element {
             {tabs.map((tab) => (
               <div
                 key={tab.id}
-                className={`${styles.tab} ${tab.id === activeId ? styles.tabActive : ''}`}
-                onClick={() => setActive(tab.id)}
-                onKeyDown={(event) => event.key === 'Enter' && setActive(tab.id)}
+                className={`${styles.tab} ${tab.id === activeId && !showForm ? styles.tabActive : ''}`}
+                onClick={() => {
+                  // Selecting a tab dismisses whatever form was covering the pane.
+                  setView({ kind: 'quick' });
+                  setActive(tab.id);
+                }}
+                onKeyDown={(event) => {
+                  if (event.key !== 'Enter') return;
+                  setView({ kind: 'quick' });
+                  setActive(tab.id);
+                }}
                 role="tab"
                 tabIndex={0}
-                aria-selected={tab.id === activeId}
+                aria-selected={tab.id === activeId && !showForm}
               >
                 <span className={`${styles.tabDot} ${styles[tab.status] ?? ''}`} />
                 {tab.name}
@@ -118,7 +133,10 @@ export function App(): JSX.Element {
               type="button"
               className={styles.newTab}
               aria-label="New connection"
-              onClick={() => setActive('')}
+              onClick={() => {
+                setView({ kind: 'quick' });
+                setActive('');
+              }}
             >
               +
             </button>
@@ -126,9 +144,9 @@ export function App(): JSX.Element {
 
           <div className={styles.panes}>
             {tabs.map((tab) => (
-              <TerminalPane key={tab.id} tab={tab} active={tab.id === activeId} />
+              <TerminalPane key={tab.id} tab={tab} active={tab.id === activeId && !showForm} />
             ))}
-            {!activeTab && (
+            {(showForm || !activeTab) && (
               <>
                 {connectError && (
                   <p className={styles.connectError} role="alert" onClick={clearConnectError}>

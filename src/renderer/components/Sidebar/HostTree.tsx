@@ -24,6 +24,8 @@ export function HostTree(): JSX.Element {
   const connectHost = useSessions((state) => state.connectHost);
 
   const [menu, setMenu] = useState<MenuState | null>(null);
+  // Electron does not implement window.prompt(), so folder naming is inline.
+  const [newFolder, setNewFolder] = useState<string | null>(null);
 
   useEffect(() => {
     if (!menu) return undefined;
@@ -57,7 +59,10 @@ export function HostTree(): JSX.Element {
       key={host.id}
       type="button"
       className={`${styles.host} ${indented ? styles.indent : ''}`}
-      onDoubleClick={() => void connectHost(host)}
+      onDoubleClick={() => {
+        setView({ kind: 'quick' });
+        void connectHost(host);
+      }}
       onContextMenu={(event) => {
         event.preventDefault();
         setMenu({ x: event.clientX, y: event.clientY, host });
@@ -81,6 +86,7 @@ export function HostTree(): JSX.Element {
         <button
           type="button"
           className={styles.folder}
+          title={`${contents.length} host${contents.length === 1 ? '' : 's'} — right-click to delete`}
           onClick={() => toggleFolder(folder.id)}
           onContextMenu={(event) => {
             event.preventDefault();
@@ -118,18 +124,43 @@ export function HostTree(): JSX.Element {
         <button
           type="button"
           className={styles.action}
-          onClick={() => {
-            const name = window.prompt('Folder name');
-            if (name?.trim()) {
-              void saveFolder({ id: '', name: name.trim(), parentId: null });
-            }
-          }}
+          onClick={() => setNewFolder((current) => (current === null ? '' : null))}
         >
           Add folder
         </button>
       </div>
 
-      {hosts.length === 0 ? (
+      {newFolder !== null && (
+        <form
+          className={styles.newFolder}
+          onSubmit={(event) => {
+            event.preventDefault();
+            const name = newFolder.trim();
+            if (!name) return;
+            void saveFolder({ id: '', name, parentId: null });
+            setNewFolder(null);
+          }}
+        >
+          <input
+            autoFocus
+            value={newFolder}
+            placeholder="Folder name"
+            onChange={(event) => setNewFolder(event.target.value)}
+            onKeyDown={(event) => event.key === 'Escape' && setNewFolder(null)}
+          />
+          <div className={styles.newFolderActions}>
+            <button type="button" className={styles.action} onClick={() => setNewFolder(null)}>
+              Cancel
+            </button>
+            <button type="submit" className={`${styles.action} ${styles.confirm}`}>
+              Create
+            </button>
+          </div>
+        </form>
+      )}
+
+      {/* A folder with nothing in it still has to be visible — it is where hosts get put. */}
+      {hosts.length === 0 && folders.length === 0 ? (
         <p className={styles.empty}>
           No saved hosts yet. Add one, or use Quick connect for a one-off session.
         </p>
@@ -153,6 +184,7 @@ export function HostTree(): JSX.Element {
             type="button"
             className={styles.menuItem}
             onClick={() => {
+              setView({ kind: 'quick' });
               void connectHost(menu.host);
               setMenu(null);
             }}
