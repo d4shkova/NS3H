@@ -36,6 +36,27 @@ npm start          # preview the production bundle
 npm test           # vitest unit tests
 ```
 
+## Electron's crypto is BoringSSL
+
+Worth knowing before debugging anything crypto-shaped: Electron does not link OpenSSL, it links
+BoringSSL, and BoringSSL omits things OpenSSL has. Code that works under `node` can still fail in
+the app.
+
+The one that bit us: `crypto.createDiffieHellmanGroup('modp2')` throws `Unknown DH group` in
+Electron. That is the 1024-bit group behind `diffie-hellman-group1-sha1` — for a lot of pre-2010
+gear, the only key exchange on offer — so those devices failed both rungs of the ladder with
+"Unknown DH group" while a plain Node script connected fine.
+
+`src/main/ssh/legacyDh.ts` restores the missing groups by handing BoringSSL the standard MODP
+primes explicitly, which it accepts. `src/main/ssh/ssh2.ts` is the only place ssh2 may be loaded
+from, because the shim has to be installed *before* ssh2 captures the crypto function at require
+time. The primes are checked byte-for-byte against OpenSSL's own copies in the unit tests.
+
+Probed under Electron 33 / BoringSSL: `modp1` and `modp2` are missing and now shimmed; `modp5`,
+`modp14`–`modp18`, `3des-cbc`, all AES CBC/CTR modes, `blowfish-cbc`, `rc4`, `hmac-sha1` and
+`hmac-md5` are all present. `cast5-cbc` is absent, but `ssh2` does not implement `cast128-cbc`
+anyway.
+
 ## Algorithm coverage
 
 The proposal in `src/main/ssh/algorithms.ts` is the spec's list verbatim, offered in a fixed
@@ -50,6 +71,13 @@ offer, rather than dropping them silently. Everything else in the spec, includin
 
 Gear that only speaks arcfour or blowfish will need a different SSH transport — worth knowing
 before phase 1 is signed off against real hardware.
+
+## Testing against a legacy server locally
+
+`ssh2` can act as a server, which makes it possible to reproduce antique gear without antique
+gear. A server constrained to `diffie-hellman-group1-sha1` / `ssh-rsa` / `3des-cbc` / `hmac-sha1`
+is enough to exercise the whole legacy path, and is how the BoringSSL DH problem above was
+confirmed fixed inside a running Electron build.
 
 ## Verifying phase 1 against real gear
 

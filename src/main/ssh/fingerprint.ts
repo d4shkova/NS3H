@@ -1,9 +1,5 @@
 import { createHash } from 'node:crypto';
-// ssh2 is CommonJS; the main bundle is ESM, so it has to come in through the default
-// export rather than named imports.
-import ssh2 from 'ssh2';
-
-const { utils } = ssh2;
+import { utils } from './ssh2.js';
 
 export interface HostKeyIdentity {
   keyType: string;

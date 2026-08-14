@@ -1,18 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import constants from 'ssh2/lib/protocol/constants.js';
 import {
   FULL_ALGORITHMS,
   LEGACY_ALGORITHMS,
   describeDropped,
   filterAlgorithms,
 } from '../src/main/ssh/algorithms.js';
-
-const SUPPORTED = {
-  kex: constants.SUPPORTED_KEX as string[],
-  serverHostKey: constants.SUPPORTED_SERVER_HOST_KEY as string[],
-  cipher: constants.SUPPORTED_CIPHER as string[],
-  hmac: constants.SUPPORTED_MAC as string[],
-};
+import { SUPPORTED_ALGORITHMS as SUPPORTED } from '../src/main/ssh/ssh2.js';
 
 describe('algorithm policy', () => {
   it('offers modern algorithms before legacy ones', () => {

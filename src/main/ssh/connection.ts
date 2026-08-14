@@ -1,10 +1,6 @@
 import { readFile } from 'node:fs/promises';
-import ssh2, {
-  type Client as SshClient,
-  type ClientChannel,
-  type ConnectConfig,
-} from 'ssh2';
-import constants from 'ssh2/lib/protocol/constants.js';
+import type { Client as SshClient, ClientChannel, ConnectConfig } from 'ssh2';
+import { Client, SUPPORTED_ALGORITHMS } from './ssh2.js';
 import type { NegotiatedAlgorithms, NoticeLevel, SshAuth, SshTarget } from '@shared/types.js';
 import {
   FULL_ALGORITHMS,
@@ -16,15 +12,6 @@ import {
 import { classifySshError, explainNetworkError } from './errors.js';
 import { identifyHostKey, type HostKeyIdentity } from './fingerprint.js';
 import { collectRemoteOffer, describeRemoteOffer, type RemoteOffer } from './handshakeLog.js';
-
-const { Client } = ssh2;
-
-const SUPPORTED = {
-  kex: constants.SUPPORTED_KEX as string[],
-  serverHostKey: constants.SUPPORTED_SERVER_HOST_KEY as string[],
-  cipher: constants.SUPPORTED_CIPHER as string[],
-  hmac: constants.SUPPORTED_MAC as string[],
-};
 
 /** §3.7 — SSH keepalive. */
 const KEEPALIVE_INTERVAL_MS = 30_000;
@@ -94,7 +81,7 @@ export class SshConnection {
         );
       }
 
-      const { algorithms, dropped } = filterAlgorithms(rung.set, SUPPORTED);
+      const { algorithms, dropped } = filterAlgorithms(rung.set, SUPPORTED_ALGORITHMS);
       const droppedLines = describeDropped(dropped);
       if (index === 0 && droppedLines.length > 0) {
         this.callbacks.onNotice(

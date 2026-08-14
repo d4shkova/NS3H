@@ -2,6 +2,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { BrowserWindow, app, shell } from 'electron';
 import { closeAllSessions, registerIpc } from './ipc/index.js';
+import { dhShim } from './ssh/ssh2.js';
 
 const dirname = fileURLToPath(new URL('.', import.meta.url));
 const isMac = process.platform === 'darwin';
@@ -45,6 +46,11 @@ function createWindow(): BrowserWindow {
 }
 
 app.whenReady().then(() => {
+  if (dhShim.patched.length > 0) {
+    console.log(
+      `NS3H: restored DH groups this runtime is missing — ${dhShim.patched.join(', ')}`,
+    );
+  }
   registerIpc();
   createWindow();
 
