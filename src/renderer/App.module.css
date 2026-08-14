@@ -1,0 +1,94 @@
+.app {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.body {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
+.main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: var(--bg-base);
+}
+
+.tabs {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  padding: 6px 8px 0;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+}
+
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px 7px 12px;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.tab:hover {
+  background: var(--bg-hover);
+}
+
+.tabActive,
+.tabActive:hover {
+  background: var(--bg-base);
+  color: var(--text-primary);
+}
+
+.tabDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text-tertiary);
+}
+
+.connected {
+  background: var(--status-ok);
+}
+
+.connecting {
+  background: var(--status-warn);
+}
+
+.error {
+  background: var(--status-error);
+}
+
+.tabClose {
+  color: var(--text-tertiary);
+  padding: 0 2px;
+}
+
+.tabClose:hover {
+  color: var(--text-primary);
+}
+
+.newTab {
+  padding: 7px 12px;
+  color: var(--text-tertiary);
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+}
+
+.newTab:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.panes {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+}

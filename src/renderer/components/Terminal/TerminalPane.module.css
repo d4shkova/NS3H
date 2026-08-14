@@ -1,0 +1,79 @@
+.pane {
+  position: relative;
+  height: 100%;
+  width: 100%;
+  background: var(--bg-base);
+}
+
+.hidden {
+  display: none;
+}
+
+.surface {
+  height: 100%;
+  width: 100%;
+  padding: 8px 4px 4px 10px;
+}
+
+.prompt {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 12px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-focus);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+  box-shadow: 0 12px 32px rgb(0 0 0 / 55%);
+}
+
+.promptTitle {
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.promptInstructions {
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  margin-bottom: 10px;
+  white-space: pre-wrap;
+}
+
+.field {
+  margin-bottom: 10px;
+}
+
+.field label {
+  display: block;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.primary {
+  background: var(--accent);
+  color: #fff;
+  border-radius: var(--radius-sm);
+  padding: 7px 14px;
+  font-weight: 600;
+}
+
+.primary:hover {
+  background: var(--accent-hover);
+}
+
+.secondary {
+  color: var(--text-secondary);
+  border-radius: var(--radius-sm);
+  padding: 7px 14px;
+}
+
+.secondary:hover {
+  background: var(--bg-hover);
+}
