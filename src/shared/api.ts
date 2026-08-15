@@ -13,6 +13,7 @@ import type {
   HostKeyPromptRequest,
   OpenSessionResult,
   SessionDataEvent,
+  SessionLogEvent,
   SessionNoticeEvent,
   SerialPortInfo,
   SessionStatusEvent,
@@ -75,6 +76,7 @@ export interface Ns3hApi {
     onData(handler: (event: SessionDataEvent) => void): Unsubscribe;
     onStatus(handler: (event: SessionStatusEvent) => void): Unsubscribe;
     onNotice(handler: (event: SessionNoticeEvent) => void): Unsubscribe;
+    onLog(handler: (event: SessionLogEvent) => void): Unsubscribe;
   };
 
   hostKey: {

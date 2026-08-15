@@ -31,6 +31,7 @@ export const IpcChannel = {
   sessionData: 'session:data',
   sessionStatus: 'session:status',
   sessionNotice: 'session:notice',
+  sessionLog: 'session:log',
   hostKeyPrompt: 'host-key:prompt',
   authPrompt: 'auth:prompt',
 } as const;

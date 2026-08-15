@@ -70,6 +70,12 @@ export interface SessionDataEvent {
   data: Uint8Array;
 }
 
+/** Emitted once, when a session's log file opens. Not a status transition. */
+export interface SessionLogEvent {
+  sessionId: string;
+  logPath: string;
+}
+
 export type NoticeLevel = 'info' | 'warn' | 'error';
 
 /** Out-of-band text rendered into the terminal pane (retry ladder, failures). */

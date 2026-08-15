@@ -7,6 +7,7 @@ import type {
   HostKeyPromptRequest,
   OpenSessionResult,
   SessionDataEvent,
+  SessionLogEvent,
   SessionNoticeEvent,
   SerialPortInfo,
   SessionStatusEvent,
@@ -71,6 +72,8 @@ const api: Ns3hApi = {
       subscribe<SessionStatusEvent>(IpcChannel.sessionStatus, handler),
     onNotice: (handler: (event: SessionNoticeEvent) => void) =>
       subscribe<SessionNoticeEvent>(IpcChannel.sessionNotice, handler),
+    onLog: (handler: (event: SessionLogEvent) => void) =>
+      subscribe<SessionLogEvent>(IpcChannel.sessionLog, handler),
   },
 
   hostKey: {

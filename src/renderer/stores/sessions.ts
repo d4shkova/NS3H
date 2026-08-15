@@ -48,6 +48,7 @@ interface SessionState {
     summary?: string,
     logPath?: string,
   ) => void;
+  setLogPath: (sessionId: string, logPath: string) => void;
   setHostKeyPrompt: (request: HostKeyPromptRequest | null) => void;
   setAuthPrompt: (sessionId: string, request: AuthPromptRequest | null) => void;
 }
@@ -187,6 +188,11 @@ export const useSessions = create<SessionState>((set, get) => ({
             }
           : tab,
       ),
+    })),
+
+  setLogPath: (sessionId, logPath) =>
+    set((state) => ({
+      tabs: state.tabs.map((tab) => (tab.id === sessionId ? { ...tab, logPath } : tab)),
     })),
 
   setHostKeyPrompt: (request) => set({ hostKeyPrompt: request }),

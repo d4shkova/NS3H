@@ -3,7 +3,6 @@ import type { WebContents } from 'electron';
 import type {
   AuthPromptRequest,
   HostKeyPromptRequest,
-  NegotiatedAlgorithms,
   NoticeLevel,
   SessionInfo,
   SshTarget,
@@ -100,7 +99,6 @@ export class SessionManager {
               hostKey: `${negotiation.hostKeyType} ${negotiation.fingerprint}`,
             },
           },
-          negotiation,
         );
       },
       onClosed: (detail) => {
@@ -300,7 +298,6 @@ export class SessionManager {
     sessionId: string,
     options: OpenSshOptions,
     descriptor: Omit<SessionLogRequest, 'hostId'>,
-    negotiation?: NegotiatedAlgorithms,
   ): Promise<void> {
     const session = this.sessions.get(sessionId);
     if (!session || !this.logs || !options.logging) return;
@@ -313,12 +310,10 @@ export class SessionManager {
       session.pending = [];
       session.log = log;
       session.info.logPath = log.path;
-      this.emit(IpcChannel.sessionStatus, {
-        sessionId,
-        status: session.info.status,
-        negotiation,
-        logPath: log.path,
-      });
+      // A dedicated event: re-emitting `status` would look like a second connect,
+      // and the renderer would print the connection banner again — mid-line, on top
+      // of whatever the device had already sent.
+      this.emit(IpcChannel.sessionLog, { sessionId, logPath: log.path });
     } catch (error) {
       session.logging = false;
       session.pending = [];

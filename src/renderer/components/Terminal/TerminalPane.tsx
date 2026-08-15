@@ -20,6 +20,9 @@ export function TerminalPane({ tab, active }: Props): JSX.Element {
   const prompt = useSessions((state) => state.authPrompts[tab.id]);
   const setAuthPrompt = useSessions((state) => state.setAuthPrompt);
   const applyStatus = useSessions((state) => state.applyStatus);
+  const setLogPath = useSessions((state) => state.setLogPath);
+  /** The connection banner belongs to the first connect, not to every status event. */
+  const announced = useRef(false);
 
   useEffect(() => {
     const host = hostRef.current;
@@ -70,7 +73,8 @@ export function TerminalPane({ tab, active }: Props): JSX.Element {
         ? `${event.negotiation.kex} · ${event.negotiation.cipher} · ${event.negotiation.mac}`
         : undefined;
       applyStatus(tab.id, event.status, event.detail, summary, event.logPath);
-      if (event.status === 'connected' && summary) {
+      if (event.status === 'connected' && summary && !announced.current) {
+        announced.current = true;
         term.writeln(ansi.ok(`Connected — ${summary}`));
       }
       if (event.detail && (event.status === 'error' || event.status === 'closed')) {
@@ -78,6 +82,10 @@ export function TerminalPane({ tab, active }: Props): JSX.Element {
         term.writeln('');
         term.writeln(paint(toCrlf(event.detail)));
       }
+    });
+
+    const offLog = window.ns3h.session.onLog((event) => {
+      if (event.sessionId === tab.id) setLogPath(tab.id, event.logPath);
     });
 
     const observer = new ResizeObserver(() => {
@@ -93,10 +101,11 @@ export function TerminalPane({ tab, active }: Props): JSX.Element {
       offData();
       offNotice();
       offStatus();
+      offLog();
       term.dispose();
       termRef.current = null;
     };
-  }, [tab.id, applyStatus]);
+  }, [tab.id, applyStatus, setLogPath]);
 
   useEffect(() => {
     if (active) {
