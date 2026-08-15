@@ -44,11 +44,18 @@ viewer with search. A quarter-million-line log renders 120 rows at a time.
 
 ## Themes
 
-Settings carries a theme picker: fourteen palettes, each previewed as a miniature terminal in
+Settings carries a theme picker: nineteen palettes, each previewed as a miniature terminal in
 its own colours. NS3H Dark and Light, Kanagawa (Wave, Dragon, Lotus), Everforest (dark and
 light), Night Owl and Light Owl, Flexoki (dark and light), and three high-contrast Hacker
 palettes. They are NS3H's own renderings of well-known colour schemes, not copies of any
 client's assets.
+
+Five more are NS3H's own, built from supplied colour sets and named for Norwegian things:
+**Røros** (the copper town — warm whitewash and burnt orange, the set's only light theme),
+**Reinmose** (reindeer lichen: grey stone, pale green over it), **Nordlys** (the aurora, green
+through cyan on a winter sky), **Rosemaling** (folk painting on a dark wine ground) and **Glør**
+(embers — near-black, everything else glowing red to salmon). Each uses its five given colours
+verbatim; the remaining thirty-odd slots a theme needs are derived in the same family.
 
 A theme carries **both halves** — the app's design tokens and the terminal's 16-colour palette —
 in one object (`shared/themes.ts`). Keeping them together is what stops the chrome and the
