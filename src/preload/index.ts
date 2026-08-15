@@ -1,14 +1,17 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron';
 import { IpcChannel } from '@shared/ipc.js';
 import type { Ns3hApi } from '@shared/api.js';
+import type { SerialConfig } from '@shared/config.js';
 import type {
   AuthPromptRequest,
   HostKeyPromptRequest,
   OpenSessionResult,
   SessionDataEvent,
   SessionNoticeEvent,
+  SerialPortInfo,
   SessionStatusEvent,
   SshTarget,
+  TelnetTargetInput,
 } from '@shared/types.js';
 
 type Unsubscribe = () => void;
@@ -40,11 +43,21 @@ const api: Ns3hApi = {
     reveal: (path: string) => ipcRenderer.invoke(IpcChannel.revealPath, path) as Promise<void>,
   },
 
+  serial: {
+    list: () => ipcRenderer.invoke(IpcChannel.serialList) as Promise<SerialPortInfo[]>,
+  },
+
   session: {
     openHost: (hostId: string) =>
       ipcRenderer.invoke(IpcChannel.sessionOpenHost, hostId) as Promise<OpenSessionResult>,
     openSsh: (target: SshTarget) =>
       ipcRenderer.invoke(IpcChannel.sessionOpenSsh, target) as Promise<OpenSessionResult>,
+    openTelnet: (target: TelnetTargetInput) =>
+      ipcRenderer.invoke(IpcChannel.sessionOpenTelnet, target) as Promise<OpenSessionResult>,
+    openSerial: (name: string, config: SerialConfig) =>
+      ipcRenderer.invoke(IpcChannel.sessionOpenSerial, name, config) as Promise<OpenSessionResult>,
+    sendBreak: (sessionId: string) =>
+      ipcRenderer.invoke(IpcChannel.sessionSendBreak, sessionId) as Promise<void>,
     write: (sessionId: string, data: string) =>
       ipcRenderer.invoke(IpcChannel.sessionWrite, sessionId, data) as Promise<void>,
     resize: (sessionId: string, cols: number, rows: number) =>

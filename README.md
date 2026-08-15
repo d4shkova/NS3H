@@ -8,7 +8,7 @@ See [`NS3H-design-spec.md`](./NS3H-design-spec.md) for the full brief.
 
 ## Status
 
-Phases 0 through 4 of the build order are in place.
+Phases 0 through 5 of the build order are in place.
 
 | Phase | Scope | State |
 |---|---|---|
@@ -17,7 +17,8 @@ Phases 0 through 4 of the build order are in place.
 | 2 | Config store: JSON files, migrations, `safeStorage` secrets | done |
 | 3 | Hosts and Credentials UI: tree, forms, folders | done |
 | 4 | Logging: sanitiser, writer, folder rules, header block | done |
-| 5+ | Telnet, serial, tabs/splits, log browser, quick connect, SFTP, export, packaging | not started |
+| 5 | Telnet + serial: IAC negotiation, port enumeration, send break | done |
+| 6+ | Tabs/splits, log browser, quick connect polish, SFTP, export, packaging | not started |
 
 What works today: quick-connect SSH from the main pane, the full → legacy algorithm retry ladder,
 password / public-key / keyboard-interactive authentication with inline re-prompting, host key
@@ -30,10 +31,33 @@ connect — its credential and secret are resolved in the main process, never ha
 renderer. Config persists in `~/.config/ns3h/` (or the platform equivalent), with secrets in the
 OS keychain via `safeStorage`.
 
-Telnet and serial hosts can be saved and edited now; connecting them arrives in phase 5.
+All three protocols connect: SSH, telnet, and serial, from Quick connect or a saved host.
 
 Sessions are logged to disk automatically, cleaned for readability. Reading them back in-app is
 phase 7 — for now they are plain text files in the directory you choose.
+
+## Telnet and serial
+
+**Telnet** is a hand-written IAC state machine (`telnet/iac.ts`) — there is no adequate library.
+It agrees to exactly four options (ECHO, SUPPRESS-GO-AHEAD, TERMINAL-TYPE, NAWS), refuses
+everything else, answers a TERMINAL-TYPE subnegotiation with `xterm-256color`, and sends NAWS on
+connect and on every resize. It never answers a request that would not change the current state,
+which is what stops two polite implementations negotiating at each other forever. Outbound `0xFF`
+is escaped as `IAC IAC`, and inbound `IAC IAC` is unescaped back to one byte.
+
+**Serial** uses `serialport`. Contrary to the spec's §9 note, **no `electron-rebuild` is needed**:
+serialport 13 ships Node-API prebuilds, which are ABI-stable across Node and Electron. Verified by
+loading the binding inside a running Electron build, and by installing with `--ignore-scripts` —
+so an npm that blocks install scripts still works.
+
+`SerialPort.list()` shells out to `udevadm` and throws where it is absent (containers, minimal
+installs), so port enumeration falls back to reading `/dev` directly rather than surfacing an
+error. The list refreshes on demand, since adapters get plugged in mid-session, and free-text
+entry is always available.
+
+Send Break asserts the line for 250 ms — the sequence Cisco password recovery needs. A permissions
+failure names the fix (`usermod -aG dialout $USER`, then log out and back in) instead of printing
+`EACCES`.
 
 ## Logging
 
@@ -138,6 +162,8 @@ that need real devices:
 src/
   main/        Electron main process — all ssh2/net/fs work lives here
     ssh/       algorithm policy, retry ladder, host key identity, error classification
+    telnet/    IAC option negotiation and the socket wrapper
+    serial/    port enumeration with a /dev fallback, break, error translation
     store/     hosts, credentials, settings, known-hosts — versioned JSON, atomic writes
     secrets/   safeStorage wrapper over secrets.enc
     logging/   ANSI/overwrite sanitiser, buffered writer, folder and header rules

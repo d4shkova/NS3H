@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { Host, SerialConfig } from '@shared/config.js';
 import type { Protocol } from '@shared/types.js';
 import { useConfig } from '@renderer/stores/config.js';
+import { DEFAULT_SERIAL, SerialFields } from './SerialFields.js';
 import styles from './form.module.css';
 
 interface Props {
@@ -10,20 +11,9 @@ interface Props {
 
 const PROTOCOLS: { value: Protocol; label: string; note?: string }[] = [
   { value: 'ssh', label: 'SSH' },
-  { value: 'telnet', label: 'Telnet', note: 'Saved now, connects in phase 5' },
-  { value: 'serial', label: 'Serial', note: 'Saved now, connects in phase 5' },
+  { value: 'telnet', label: 'Telnet', note: 'No encryption — the device prompts in-band' },
+  { value: 'serial', label: 'Serial', note: 'Console line; Send Break is in the session toolbar' },
 ];
-
-const BAUD_RATES = [2400, 4800, 9600, 19200, 38400, 57600, 115200];
-
-const DEFAULT_SERIAL: SerialConfig = {
-  path: '',
-  baudRate: 9600,
-  dataBits: 8,
-  parity: 'none',
-  stopBits: 1,
-  flowControl: 'none',
-};
 
 const NEW_CREDENTIAL = '__inline__';
 
@@ -191,102 +181,12 @@ export function HostForm({ host }: Props): JSX.Element {
         )}
 
         {protocol === 'serial' && (
-          <div className={styles.section}>
-            <div className={styles.sectionTitle}>Serial</div>
-            {field(
-              'serialPath',
-              'Port',
-              <input
-                id="serialPath"
-                value={serial.path}
-                placeholder="/dev/ttyUSB0"
-                onChange={(event) => setSerial({ ...serial, path: event.target.value })}
-              />,
-              'Port enumeration with manufacturer names arrives in phase 5.',
-            )}
-            <div className={styles.row}>
-              {field(
-                'baud',
-                'Baud',
-                <select
-                  id="baud"
-                  value={serial.baudRate}
-                  onChange={(event) =>
-                    setSerial({ ...serial, baudRate: Number(event.target.value) })
-                  }
-                >
-                  {BAUD_RATES.map((rate) => (
-                    <option key={rate} value={rate}>
-                      {rate}
-                    </option>
-                  ))}
-                </select>,
-              )}
-              {field(
-                'dataBits',
-                'Data bits',
-                <select
-                  id="dataBits"
-                  value={serial.dataBits}
-                  onChange={(event) =>
-                    setSerial({ ...serial, dataBits: Number(event.target.value) as 7 | 8 })
-                  }
-                >
-                  <option value={8}>8</option>
-                  <option value={7}>7</option>
-                </select>,
-              )}
-            </div>
-            <div className={styles.row}>
-              {field(
-                'parity',
-                'Parity',
-                <select
-                  id="parity"
-                  value={serial.parity}
-                  onChange={(event) =>
-                    setSerial({ ...serial, parity: event.target.value as SerialConfig['parity'] })
-                  }
-                >
-                  <option value="none">none</option>
-                  <option value="even">even</option>
-                  <option value="odd">odd</option>
-                </select>,
-              )}
-              {field(
-                'stopBits',
-                'Stop bits',
-                <select
-                  id="stopBits"
-                  value={serial.stopBits}
-                  onChange={(event) =>
-                    setSerial({ ...serial, stopBits: Number(event.target.value) as 1 | 2 })
-                  }
-                >
-                  <option value={1}>1</option>
-                  <option value={2}>2</option>
-                </select>,
-              )}
-              {field(
-                'flowControl',
-                'Flow control',
-                <select
-                  id="flowControl"
-                  value={serial.flowControl}
-                  onChange={(event) =>
-                    setSerial({
-                      ...serial,
-                      flowControl: event.target.value as SerialConfig['flowControl'],
-                    })
-                  }
-                >
-                  <option value="none">none</option>
-                  <option value="rtscts">RTS/CTS</option>
-                  <option value="xonxoff">XON/XOFF</option>
-                </select>,
-              )}
-            </div>
-          </div>
+          <SerialFields
+            value={serial}
+            onChange={setSerial}
+            error={errors.serialPath}
+            idPrefix="host-"
+          />
         )}
 
         {protocol !== 'serial' && (

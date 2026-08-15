@@ -4,6 +4,7 @@ import { FitAddon } from '@xterm/addon-fit';
 import { SearchAddon } from '@xterm/addon-search';
 import { WebglAddon } from '@xterm/addon-webgl';
 import { useSessions, type SessionTab } from '@renderer/stores/sessions.js';
+import { SessionToolbar } from './SessionToolbar.js';
 import { ansi, toCrlf, xtermTheme } from './theme.js';
 import styles from './TerminalPane.module.css';
 
@@ -106,6 +107,7 @@ export function TerminalPane({ tab, active }: Props): JSX.Element {
 
   return (
     <div className={`${styles.pane} ${active ? '' : styles.hidden}`}>
+      <SessionToolbar tab={tab} onClear={() => termRef.current?.clear()} />
       <div ref={hostRef} className={styles.surface} />
       {prompt && (
         <AuthPromptForm

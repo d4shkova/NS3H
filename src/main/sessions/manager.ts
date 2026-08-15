@@ -10,18 +10,29 @@ import type {
 } from '@shared/types.js';
 import { IpcChannel } from '@shared/ipc.js';
 import { SshConnection } from '../ssh/connection.js';
+import { TelnetConnection, type TelnetTarget } from '../telnet/connection.js';
+import { SerialConnection } from '../serial/connection.js';
+import type { SerialConfig } from '@shared/config.js';
 import type { HostKeyIdentity } from '../ssh/fingerprint.js';
 import { KnownHostsStore, verifyHostKey } from '../store/knownHosts.js';
-import type { LogService } from '../logging/index.js';
+import type { LogService, SessionLogRequest } from '../logging/index.js';
 import type { SessionLogWriter } from '../logging/writer.js';
 
 export function newId(prefix: string): string {
   return `${prefix}_${randomBytes(4).toString('hex')}`;
 }
 
+/** What every protocol has to provide the manager. */
+interface Transport {
+  write(data: string): void;
+  resize(cols: number, rows: number): void;
+  close(): void;
+  sendBreak?(): Promise<void>;
+}
+
 interface Session {
   info: SessionInfo;
-  connection: SshConnection;
+  connection: Transport;
   /** Null until the log opens, or for good when logging is off. */
   log: SessionLogWriter | null;
   /**
@@ -73,7 +84,24 @@ export class SessionManager {
         info.status = 'connected';
         info.negotiation = negotiation;
         this.emit(IpcChannel.sessionStatus, { sessionId, status: 'connected', negotiation });
-        void this.startLog(sessionId, target, options, negotiation);
+        void this.startLog(
+          sessionId,
+          options,
+          {
+            name: target.name,
+            address: target.address,
+            port: target.port,
+            protocol: 'ssh',
+            user: target.auth.username,
+            crypto: {
+              kex: negotiation.kex,
+              cipher: negotiation.cipher,
+              mac: negotiation.mac,
+              hostKey: `${negotiation.hostKeyType} ${negotiation.fingerprint}`,
+            },
+          },
+          negotiation,
+        );
       },
       onClosed: (detail) => {
         info.status = 'closed';
@@ -101,6 +129,136 @@ export class SessionManager {
     this.emit(IpcChannel.sessionStatus, { sessionId, status: 'connecting' });
     void connection.open();
     return sessionId;
+  }
+
+  openTelnet(target: TelnetTarget, options: OpenSshOptions = { logging: true }): string {
+    const sessionId = newId('ses');
+    const info: SessionInfo = {
+      id: sessionId,
+      protocol: 'telnet',
+      name: target.name,
+      address: target.address,
+      port: target.port,
+      username: '',
+      status: 'connecting',
+    };
+
+    const connection = new TelnetConnection(target, {
+      onData: (chunk) => {
+        this.record(sessionId, chunk);
+        this.emitData(sessionId, chunk);
+      },
+      onConnected: () => {
+        info.status = 'connected';
+        this.emit(IpcChannel.sessionStatus, { sessionId, status: 'connected' });
+        void this.startLog(sessionId, options, {
+          name: target.name,
+          address: target.address,
+          port: target.port,
+          protocol: 'telnet',
+        });
+      },
+      onClosed: (detail) => {
+        info.status = 'closed';
+        this.emit(IpcChannel.sessionStatus, { sessionId, status: 'closed', detail });
+        void this.finish(sessionId);
+      },
+      onError: (detail) => {
+        info.status = 'error';
+        this.emit(IpcChannel.sessionStatus, { sessionId, status: 'error', detail });
+        void this.finish(sessionId);
+      },
+      onNotice: (level, text) => this.emit(IpcChannel.sessionNotice, { sessionId, level, text }),
+    });
+
+    this.sessions.set(sessionId, {
+      info,
+      connection,
+      log: null,
+      pending: [],
+      logging: options.logging,
+    });
+    this.emit(IpcChannel.sessionStatus, { sessionId, status: 'connecting' });
+    connection.open();
+    return sessionId;
+  }
+
+  openSerial(
+    name: string,
+    config: SerialConfig,
+    options: OpenSshOptions = { logging: true },
+  ): string {
+    const sessionId = newId('ses');
+    const info: SessionInfo = {
+      id: sessionId,
+      protocol: 'serial',
+      name,
+      address: config.path,
+      port: config.baudRate,
+      username: '',
+      status: 'connecting',
+    };
+
+    const connection = new SerialConnection(config, {
+      onData: (chunk) => {
+        this.record(sessionId, chunk);
+        this.emitData(sessionId, chunk);
+      },
+      onConnected: () => {
+        info.status = 'connected';
+        this.emit(IpcChannel.sessionStatus, { sessionId, status: 'connected' });
+        void this.startLog(sessionId, options, {
+          name,
+          address: config.path,
+          port: config.baudRate,
+          protocol: 'serial',
+          serial: {
+            path: config.path,
+            baudRate: config.baudRate,
+            dataBits: config.dataBits,
+            parity: config.parity,
+            stopBits: config.stopBits,
+            flowControl: config.flowControl,
+          },
+        });
+      },
+      onClosed: (detail) => {
+        info.status = 'closed';
+        this.emit(IpcChannel.sessionStatus, { sessionId, status: 'closed', detail });
+        void this.finish(sessionId);
+      },
+      onError: (detail) => {
+        info.status = 'error';
+        this.emit(IpcChannel.sessionStatus, { sessionId, status: 'error', detail });
+        void this.finish(sessionId);
+      },
+      onNotice: (level, text) => this.emit(IpcChannel.sessionNotice, { sessionId, level, text }),
+    });
+
+    this.sessions.set(sessionId, {
+      info,
+      connection,
+      log: null,
+      pending: [],
+      logging: options.logging,
+    });
+    this.emit(IpcChannel.sessionStatus, { sessionId, status: 'connecting' });
+    connection.open();
+    return sessionId;
+  }
+
+  /** Serial only — the toolbar button is hidden for other protocols. */
+  async sendBreak(sessionId: string): Promise<void> {
+    const session = this.sessions.get(sessionId);
+    if (!session?.connection.sendBreak) {
+      throw new Error('Send Break only applies to a serial session.');
+    }
+    await session.connection.sendBreak();
+    this.emit(IpcChannel.sessionNotice, {
+      sessionId,
+      level: 'info',
+      text: 'Sent break.',
+    });
   }
 
   write(sessionId: string, data: string): void {
@@ -140,28 +298,15 @@ export class SessionManager {
 
   private async startLog(
     sessionId: string,
-    target: SshTarget,
     options: OpenSshOptions,
-    negotiation: NegotiatedAlgorithms,
+    descriptor: Omit<SessionLogRequest, 'hostId'>,
+    negotiation?: NegotiatedAlgorithms,
   ): Promise<void> {
     const session = this.sessions.get(sessionId);
     if (!session || !this.logs || !options.logging) return;
 
     try {
-      const log = await this.logs.begin({
-        hostId: options.hostId,
-        name: target.name,
-        address: target.address,
-        port: target.port,
-        protocol: 'ssh',
-        user: target.auth.username,
-        crypto: {
-          kex: negotiation.kex,
-          cipher: negotiation.cipher,
-          mac: negotiation.mac,
-          hostKey: `${negotiation.hostKeyType} ${negotiation.fingerprint}`,
-        },
-      });
+      const log = await this.logs.begin({ hostId: options.hostId, ...descriptor });
       if (!log) return; // no log directory chosen yet
 
       for (const chunk of session.pending) log.write(chunk);

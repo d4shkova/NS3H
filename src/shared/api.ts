@@ -6,13 +6,18 @@ import type {
   Settings,
 } from './config.js';
 import type {
+  SerialConfig,
+} from './config.js';
+import type {
   AuthPromptRequest,
   HostKeyPromptRequest,
   OpenSessionResult,
   SessionDataEvent,
   SessionNoticeEvent,
+  SerialPortInfo,
   SessionStatusEvent,
   SshTarget,
+  TelnetTargetInput,
 } from './types.js';
 
 export type Unsubscribe = () => void;
@@ -51,10 +56,19 @@ export interface Ns3hApi {
     reveal(path: string): Promise<void>;
   };
 
+  serial: {
+    /** Re-enumerated on every call — adapters get plugged in mid-session. */
+    list(): Promise<SerialPortInfo[]>;
+  };
+
   session: {
     /** Connect to a saved host, resolving its credential and secret in main. */
     openHost(hostId: string): Promise<OpenSessionResult>;
     openSsh(target: SshTarget): Promise<OpenSessionResult>;
+    openTelnet(target: TelnetTargetInput): Promise<OpenSessionResult>;
+    openSerial(name: string, config: SerialConfig): Promise<OpenSessionResult>;
+    /** Serial only: assert break for 250 ms (Cisco password recovery). */
+    sendBreak(sessionId: string): Promise<void>;
     write(sessionId: string, data: string): Promise<void>;
     resize(sessionId: string, cols: number, rows: number): Promise<void>;
     close(sessionId: string): Promise<void>;

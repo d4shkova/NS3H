@@ -2,10 +2,11 @@ import { create } from 'zustand';
 import type {
   AuthPromptRequest,
   HostKeyPromptRequest,
+  Protocol,
   SessionStatus,
   SshTarget,
 } from '@shared/types.js';
-import type { Host } from '@shared/config.js';
+import type { Host, SerialConfig } from '@shared/config.js';
 
 export interface SessionTab {
   id: string;
@@ -14,6 +15,7 @@ export interface SessionTab {
   port: number;
   username: string;
   status: SessionStatus;
+  protocol: Protocol;
   detail?: string;
   negotiationSummary?: string;
   /** Set once main has the log file open — drives the status bar indicator. */
@@ -31,7 +33,10 @@ interface SessionState {
 
   setSection: (section: SidebarSection) => void;
   connect: (target: SshTarget) => Promise<void>;
+  connectTelnet: (target: { name: string; address: string; port: number }) => Promise<void>;
+  connectSerial: (name: string, config: SerialConfig) => Promise<void>;
   connectHost: (host: Host) => Promise<void>;
+  sendBreak: (sessionId: string) => Promise<void>;
   connectError: string | null;
   clearConnectError: () => void;
   setActive: (id: string) => void;
@@ -58,13 +63,63 @@ export const useSessions = create<SessionState>((set, get) => ({
   setSection: (section) => set({ section }),
   clearConnectError: () => set({ connectError: null }),
 
-  connectHost: async (host) => {
-    if (host.protocol !== 'ssh') {
-      set({
-        connectError: `${host.name} is a ${host.protocol} host. Telnet and serial connect in phase 5 — the host is saved and ready for it.`,
-      });
-      return;
+  connectTelnet: async (target) => {
+    try {
+      const { sessionId } = await window.ns3h.session.openTelnet(target);
+      set((state) => ({
+        connectError: null,
+        tabs: [
+          ...state.tabs,
+          {
+            id: sessionId,
+            name: target.name || target.address,
+            address: target.address,
+            port: target.port,
+            username: '',
+            status: 'connecting',
+            protocol: 'telnet',
+          },
+        ],
+        activeId: sessionId,
+      }));
+    } catch (cause) {
+      set({ connectError: (cause as Error).message });
     }
+  },
+
+  connectSerial: async (name, config) => {
+    try {
+      const { sessionId } = await window.ns3h.session.openSerial(name, config);
+      set((state) => ({
+        connectError: null,
+        tabs: [
+          ...state.tabs,
+          {
+            id: sessionId,
+            name: name || config.path,
+            address: config.path,
+            port: config.baudRate,
+            username: '',
+            status: 'connecting',
+            protocol: 'serial',
+          },
+        ],
+        activeId: sessionId,
+      }));
+    } catch (cause) {
+      set({ connectError: (cause as Error).message });
+    }
+  },
+
+  sendBreak: async (sessionId) => {
+    try {
+      await window.ns3h.session.sendBreak(sessionId);
+    } catch (cause) {
+      set({ connectError: (cause as Error).message });
+    }
+  },
+
+  connectHost: async (host) => {
     try {
       const { sessionId } = await window.ns3h.session.openHost(host.id);
       set((state) => ({
@@ -74,10 +129,11 @@ export const useSessions = create<SessionState>((set, get) => ({
           {
             id: sessionId,
             name: host.name,
-            address: host.address ?? '',
-            port: host.port ?? 22,
+            address: host.protocol === 'serial' ? (host.serial?.path ?? '') : (host.address ?? ''),
+            port: host.protocol === 'serial' ? (host.serial?.baudRate ?? 9600) : (host.port ?? 22),
             username: '',
             status: 'connecting',
+            protocol: host.protocol,
           },
         ],
         activeId: sessionId,
@@ -99,6 +155,7 @@ export const useSessions = create<SessionState>((set, get) => ({
           port: target.port,
           username: target.auth.username,
           status: 'connecting',
+          protocol: 'ssh',
         },
       ],
       activeId: sessionId,

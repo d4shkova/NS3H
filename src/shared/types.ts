@@ -16,6 +16,20 @@ export interface SshTarget {
   auth: SshAuth;
 }
 
+export interface TelnetTargetInput {
+  name: string;
+  address: string;
+  port: number;
+}
+
+export interface SerialPortInfo {
+  path: string;
+  manufacturer?: string;
+  serialNumber?: string;
+  /** `/dev/ttyUSB0 — FTDI FT232R`; users do not recognise bare paths. */
+  label: string;
+}
+
 export type SessionStatus = 'connecting' | 'connected' | 'closed' | 'error';
 
 export interface NegotiatedAlgorithms {

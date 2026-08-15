@@ -4,6 +4,7 @@ import type {
   Credential,
   Folder,
   Host,
+  SerialConfig,
   Settings,
 } from '@shared/config.js';
 import type { SshAuth, SshTarget } from '@shared/types.js';
@@ -23,12 +24,18 @@ export function newConfigId(prefix: 'hst' | 'crd' | 'fld'): string {
   return `${prefix}_${randomBytes(4).toString('hex')}`;
 }
 
-export interface ResolvedHostSession {
-  target: SshTarget;
+interface ResolvedBase {
   hostId: string;
+  name: string;
   /** The host's "Log all sessions" setting (§4.1). */
   logging: boolean;
 }
+
+/** A saved host resolved into whatever its protocol needs to connect. */
+export type ResolvedHostSession =
+  | (ResolvedBase & { kind: 'ssh'; target: SshTarget })
+  | (ResolvedBase & { kind: 'telnet'; target: { name: string; address: string; port: number } })
+  | (ResolvedBase & { kind: 'serial'; serial: SerialConfig });
 
 export interface CredentialSecrets {
   /** Omitted means "unchanged"; an empty string clears the stored secret. */
@@ -110,24 +117,39 @@ export class ConfigService {
   }
 
   /**
-   * Builds what the SSH layer needs from a saved host, plus the logging facts the
-   * session needs. A secret that cannot be read — no keychain, or never stored —
+   * Builds what a saved host needs to connect, plus the logging facts the session
+   * needs. An SSH secret that cannot be read — no keychain, or never stored —
    * degrades to an inline prompt rather than failing.
    */
-  async resolveTarget(hostId: string): Promise<ResolvedHostSession | null> {
+  async resolveHost(hostId: string): Promise<ResolvedHostSession | null> {
     const host = (await this.hosts.read()).hosts.find((entry) => entry.id === hostId);
-    if (!host || host.protocol !== 'ssh' || !host.address) return null;
+    if (!host) return null;
+    const base = { hostId: host.id, name: host.name, logging: host.logging };
 
-    const auth = await this.resolveAuth(host);
+    if (host.protocol === 'serial') {
+      if (!host.serial?.path) return null;
+      return { ...base, kind: 'serial', serial: host.serial };
+    }
+
+    if (!host.address) return null;
+
+    if (host.protocol === 'telnet') {
+      return {
+        ...base,
+        kind: 'telnet',
+        target: { name: host.name, address: host.address, port: host.port ?? 23 },
+      };
+    }
+
     return {
+      ...base,
+      kind: 'ssh',
       target: {
         name: host.name,
         address: host.address,
         port: host.port ?? 22,
-        auth,
+        auth: await this.resolveAuth(host),
       },
-      hostId: host.id,
-      logging: host.logging,
     };
   }
 

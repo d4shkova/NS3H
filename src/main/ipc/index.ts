@@ -8,6 +8,9 @@ import { ConfigService, newConfigId, type CredentialSecrets } from '../store/ind
 import { normaliseCredential } from '../store/credentials.js';
 import { normaliseFolder, normaliseHost } from '../store/hosts.js';
 import { LogService } from '../logging/index.js';
+import { listSerialPorts } from '../serial/ports.js';
+import type { SerialConfig } from '@shared/config.js';
+import type { TelnetTargetInput } from '@shared/types.js';
 
 let configService: ConfigService | null = null;
 
@@ -67,6 +70,34 @@ function parseTarget(raw: unknown): SshTarget {
     throw new Error('unsupported auth kind');
   }
   return { ...target, name: target.name || target.address };
+}
+
+function parseTelnetTarget(raw: unknown): TelnetTargetInput {
+  const target = raw as TelnetTargetInput;
+  requireString(target?.address, 'address');
+  if (typeof target.port !== 'number' || target.port < 1 || target.port > 65535) {
+    throw new Error('port must be between 1 and 65535');
+  }
+  return { name: target.name || target.address, address: target.address, port: target.port };
+}
+
+const PARITY = ['none', 'even', 'odd'];
+const FLOW = ['none', 'rtscts', 'xonxoff'];
+
+function parseSerialConfig(raw: unknown): SerialConfig {
+  const config = raw as SerialConfig;
+  requireString(config?.path, 'path');
+  if (typeof config.baudRate !== 'number' || config.baudRate <= 0) {
+    throw new Error('baudRate must be a positive number');
+  }
+  return {
+    path: config.path,
+    baudRate: config.baudRate,
+    dataBits: config.dataBits === 7 ? 7 : 8,
+    parity: PARITY.includes(config.parity) ? config.parity : 'none',
+    stopBits: config.stopBits === 2 ? 2 : 1,
+    flowControl: FLOW.includes(config.flowControl) ? config.flowControl : 'none',
+  } as SerialConfig;
 }
 
 /** New records arrive without an id; minting them in main keeps ids off the renderer. */
@@ -141,14 +172,19 @@ export function registerIpc(): void {
   registerConfigIpc();
 
   ipcMain.handle(IpcChannel.sessionOpenHost, async (event, hostId: unknown) => {
-    const resolved = await config().resolveTarget(requireString(hostId, 'hostId'));
-    if (!resolved) throw new Error('That host cannot be opened as an SSH session.');
-    return {
-      sessionId: managerFor(event.sender).openSsh(resolved.target, {
-        hostId: resolved.hostId,
-        logging: resolved.logging,
-      }),
-    };
+    const resolved = await config().resolveHost(requireString(hostId, 'hostId'));
+    if (!resolved) throw new Error('That host could not be opened.');
+    const manager = managerFor(event.sender);
+    const options = { hostId: resolved.hostId, logging: resolved.logging };
+
+    switch (resolved.kind) {
+      case 'ssh':
+        return { sessionId: manager.openSsh(resolved.target, options) };
+      case 'telnet':
+        return { sessionId: manager.openTelnet(resolved.target, options) };
+      case 'serial':
+        return { sessionId: manager.openSerial(resolved.name, resolved.serial, options) };
+    }
   });
 
   ipcMain.handle(IpcChannel.sessionOpenSsh, (event, raw): OpenSessionResult => {
@@ -156,6 +192,32 @@ export function registerIpc(): void {
     const sessionId = managerFor(event.sender).openSsh(parseTarget(raw), { logging: true });
     return { sessionId };
   });
+
+  ipcMain.handle(IpcChannel.sessionOpenTelnet, (event, raw): OpenSessionResult => {
+    const sessionId = managerFor(event.sender).openTelnet(parseTelnetTarget(raw), {
+      logging: true,
+    });
+    return { sessionId };
+  });
+
+  ipcMain.handle(
+    IpcChannel.sessionOpenSerial,
+    (event, name: unknown, raw: unknown): OpenSessionResult => {
+      const config = parseSerialConfig(raw);
+      const sessionId = managerFor(event.sender).openSerial(
+        typeof name === 'string' && name ? name : config.path,
+        config,
+        { logging: true },
+      );
+      return { sessionId };
+    },
+  );
+
+  ipcMain.handle(IpcChannel.sessionSendBreak, (event, sessionId: unknown) =>
+    managerFor(event.sender).sendBreak(requireString(sessionId, 'sessionId')),
+  );
+
+  ipcMain.handle(IpcChannel.serialList, () => listSerialPorts());
 
   ipcMain.handle(IpcChannel.sessionWrite, (event, sessionId: unknown, data: unknown) => {
     managerFor(event.sender).write(requireString(sessionId, 'sessionId'), String(data ?? ''));
