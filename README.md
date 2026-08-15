@@ -8,7 +8,7 @@ See [`NS3H-design-spec.md`](./NS3H-design-spec.md) for the full brief.
 
 ## Status
 
-Phases 0 through 10 of the build order are in place.
+All eleven phases of the build order are in place.
 
 | Phase | Scope | State |
 |---|---|---|
@@ -23,7 +23,7 @@ Phases 0 through 10 of the build order are in place.
 | 8 | Quick connect | done |
 | 9 | SFTP: dual-pane transfer for SSH sessions | done |
 | 10 | Export / import: both formats | done |
-| 11 | Packaging: electron-builder, CI matrix, README | not started |
+| 11 | Packaging: electron-builder, CI matrix, README | done |
 
 What works today: quick-connect SSH from the main pane, the full → legacy algorithm retry ladder,
 password / public-key / keyboard-interactive authentication with inline re-prompting, host key
@@ -194,6 +194,40 @@ npm run build      # typecheck + production bundle into out/
 npm start          # preview the production bundle
 npm test           # vitest unit tests
 ```
+
+## Building installers
+
+```sh
+npm run dist          # for the platform you are on
+npm run dist:linux    # AppImage + .deb
+npm run dist:win      # NSIS .exe
+npm run dist:mac      # .dmg
+```
+
+Output lands in `release/`. Packaging runs the production build first, so
+`npx electron-builder` on its own cannot ship a stale renderer.
+
+**There is no cross-compilation** — each target is built on its own OS. `.github/workflows/build.yml`
+does that as a matrix (Ubuntu, Windows, macOS) after typecheck and tests, and uploads the
+installers as artifacts. Three local machines work equally well.
+
+`serialport` needs no rebuild per platform (Node-API prebuilds), but its binding is kept outside
+the asar via `asarUnpack` — inside one, the loader cannot find it.
+
+## Installing an unsigned build
+
+Builds are unsigned, so each platform will object once. This is expected, not a fault:
+
+- **macOS** — Gatekeeper refuses it. Open System Settings → Privacy & Security and choose
+  "Open Anyway" after the first launch attempt, or run
+  `xattr -dr com.apple.quarantine /Applications/NS3H.app`.
+- **Windows** — SmartScreen warns. Choose "More info", then "Run anyway".
+- **Linux** — `chmod +x NS3H-*.AppImage` and run it. The `.deb` installs normally with
+  `sudo apt install ./ns3h_*.deb`. On a system without FUSE, run the AppImage with
+  `APPIMAGE_EXTRACT_AND_RUN=1`.
+
+Serial ports need group membership on Linux: `sudo usermod -aG dialout $USER`, then log out and
+back in. NS3H says this itself if a port refuses to open.
 
 ## Electron's crypto is BoringSSL
 

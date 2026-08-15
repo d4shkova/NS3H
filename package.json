@@ -3,7 +3,10 @@
   "version": "0.1.0",
   "description": "Cross-platform terminal client for network engineers",
   "main": "./out/main/index.js",
-  "author": "NS3H",
+  "author": {
+    "name": "NS3H",
+    "email": "ns3h@localhost"
+  },
   "license": "MIT",
   "private": true,
   "type": "module",
@@ -13,7 +16,12 @@
     "start": "electron-vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "pack": "npm run build && electron-builder --dir",
+    "dist": "npm run build && electron-builder",
+    "dist:linux": "npm run build && electron-builder --linux",
+    "dist:win": "npm run build && electron-builder --win",
+    "dist:mac": "npm run build && electron-builder --mac"
   },
   "dependencies": {
     "@node-rs/argon2": "^2.1.0",
@@ -32,6 +40,7 @@
     "@xterm/addon-webgl": "^0.18.0",
     "@xterm/xterm": "^5.5.0",
     "electron": "^33.3.1",
+    "electron-builder": "^26.15.3",
     "electron-vite": "^2.3.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
@@ -39,5 +48,6 @@
     "vite": "^5.4.11",
     "vitest": "^2.1.8",
     "zustand": "^5.0.2"
-  }
+  },
+  "desktopName": "ns3h.desktop"
 }
