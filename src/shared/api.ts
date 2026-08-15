@@ -7,6 +7,7 @@ import type {
 } from './config.js';
 import type { SerialConfig } from './config.js';
 import type { LogDocument, LogFileInfo, LogFolderInfo, LogMatch } from './logs.js';
+import type { LocalEntry, RemoteEntry, TransferEvent } from './transfer.js';
 import type {
   AuthPromptRequest,
   HostKeyPromptRequest,
@@ -74,6 +75,17 @@ export interface Ns3hApi {
   serial: {
     /** Re-enumerated on every call — adapters get plugged in mid-session. */
     list(): Promise<SerialPortInfo[]>;
+  };
+
+  transfer: {
+    /** SFTP runs over an SSH session that is already open and authenticated. */
+    remoteHome(sessionId: string): Promise<string>;
+    remoteList(sessionId: string, path: string): Promise<RemoteEntry[]>;
+    localList(path: string): Promise<{ path: string; entries: LocalEntry[] }>;
+    download(sessionId: string, remotePath: string, localDirectory: string): Promise<string>;
+    upload(sessionId: string, localPath: string, remoteDirectory: string): Promise<string>;
+    chooseDirectory(): Promise<string | null>;
+    onProgress(handler: (event: TransferEvent) => void): Unsubscribe;
   };
 
   session: {

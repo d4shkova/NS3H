@@ -11,6 +11,7 @@ import { HostsList } from './components/Lists/HostsList.js';
 import { CredentialsList } from './components/Lists/CredentialsList.js';
 import { LogsList } from './components/Lists/LogsList.js';
 import { LogViewer } from './components/Lists/LogViewer.js';
+import { TransferView } from './components/Transfer/TransferView.js';
 import { useConfig } from './stores/config.js';
 import { SessionDock } from './components/Terminal/SessionDock.js';
 import { SessionOverlays } from './components/Terminal/SessionOverlays.js';
@@ -174,7 +175,9 @@ export function App(): JSX.Element {
 
             {showForm && (
               <>
-                {tabs.length > 0 && (
+                {/* Full-pane views carry their own navigation, so the floating
+                    control would land on top of their header. */}
+                {tabs.length > 0 && view.kind !== 'log-viewer' && view.kind !== 'transfer' && (
                   <div className={styles.backBar}>
                     <button type="button" onClick={() => setView({ kind: 'sessions' })}>
                       ← Back to {tabs.length} session{tabs.length === 1 ? '' : 's'}
@@ -191,6 +194,7 @@ export function App(): JSX.Element {
                 {view.kind === 'hosts' && <HostsList />}
                 {view.kind === 'credentials' && <CredentialsList />}
                 {view.kind === 'logs' && <LogsList />}
+                {view.kind === 'transfer' && <TransferView />}
                 {view.kind === 'log-viewer' && (
                   <LogViewer key={view.path} path={view.path} title={view.title} />
                 )}

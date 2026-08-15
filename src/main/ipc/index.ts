@@ -11,8 +11,13 @@ import { LogService } from '../logging/index.js';
 import { listSerialPorts } from '../serial/ports.js';
 import { listLogFolders, listLogSessions } from '../logging/browse.js';
 import { LogReader } from '../logging/reader.js';
+import { listLocal } from '../ssh/sftp.js';
+import { randomBytes } from 'node:crypto';
 import type { SerialConfig } from '@shared/config.js';
 import type { TelnetTargetInput } from '@shared/types.js';
+import type { TransferEvent } from '@shared/transfer.js';
+
+type TransferStatus = TransferEvent['status'];
 
 let configService: ConfigService | null = null;
 
@@ -269,6 +274,88 @@ export function registerIpc(): void {
   );
 
   ipcMain.handle(IpcChannel.serialList, () => listSerialPorts());
+
+  ipcMain.handle(IpcChannel.transferRemoteHome, (event, sessionId: unknown) =>
+    managerFor(event.sender).remoteHome(requireString(sessionId, 'sessionId')),
+  );
+
+  ipcMain.handle(IpcChannel.transferRemoteList, (event, sessionId: unknown, path: unknown) =>
+    managerFor(event.sender).remoteList(
+      requireString(sessionId, 'sessionId'),
+      requireString(path, 'path'),
+    ),
+  );
+
+  ipcMain.handle(IpcChannel.transferLocalList, (_event, path: unknown) =>
+    listLocal(typeof path === 'string' ? path : ''),
+  );
+
+  ipcMain.handle(IpcChannel.transferChooseDirectory, async (event) => {
+    const window = BrowserWindow.fromWebContents(event.sender);
+    const result = await dialog.showOpenDialog(window!, {
+      title: 'Choose a directory',
+      properties: ['openDirectory', 'createDirectory'],
+    });
+    return result.canceled ? null : result.filePaths[0];
+  });
+
+  ipcMain.handle(
+    IpcChannel.transferDownload,
+    async (event, sessionId: unknown, remotePath: unknown, localDirectory: unknown) => {
+      const id = `trf_${randomBytes(3).toString('hex')}`;
+      const session = requireString(sessionId, 'sessionId');
+      const remote = requireString(remotePath, 'remotePath');
+      const name = remote.split('/').pop() ?? remote;
+
+      // Progress is a stream of events rather than a resolved promise, so a large
+      // file shows movement instead of appearing to hang.
+      const report = (transferred: number, total: number, status: TransferStatus, detail?: string) =>
+        event.sender.isDestroyed() ||
+        event.sender.send(IpcChannel.transferProgress, {
+          id, sessionId: session, direction: 'download', name, transferred, total, status, detail,
+        });
+
+      try {
+        const target = await managerFor(event.sender).download(
+          session, remote, requireString(localDirectory, 'localDirectory'),
+          ({ transferred, total }) => report(transferred, total, 'running'),
+        );
+        report(1, 1, 'done');
+        return target;
+      } catch (error) {
+        report(0, 1, 'error', (error as Error).message);
+        throw error;
+      }
+    },
+  );
+
+  ipcMain.handle(
+    IpcChannel.transferUpload,
+    async (event, sessionId: unknown, localPath: unknown, remoteDirectory: unknown) => {
+      const id = `trf_${randomBytes(3).toString('hex')}`;
+      const session = requireString(sessionId, 'sessionId');
+      const local = requireString(localPath, 'localPath');
+      const name = local.split(/[\\/]/).pop() ?? local;
+
+      const report = (transferred: number, total: number, status: TransferStatus, detail?: string) =>
+        event.sender.isDestroyed() ||
+        event.sender.send(IpcChannel.transferProgress, {
+          id, sessionId: session, direction: 'upload', name, transferred, total, status, detail,
+        });
+
+      try {
+        const target = await managerFor(event.sender).upload(
+          session, local, requireString(remoteDirectory, 'remoteDirectory'),
+          ({ transferred, total }) => report(transferred, total, 'running'),
+        );
+        report(1, 1, 'done');
+        return target;
+      } catch (error) {
+        report(0, 1, 'error', (error as Error).message);
+        throw error;
+      }
+    },
+  );
 
   ipcMain.handle(IpcChannel.sessionWrite, (event, sessionId: unknown, data: unknown) => {
     managerFor(event.sender).write(requireString(sessionId, 'sessionId'), String(data ?? ''));

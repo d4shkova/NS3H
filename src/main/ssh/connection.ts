@@ -1,5 +1,5 @@
 import { readFile } from 'node:fs/promises';
-import type { Client as SshClient, ClientChannel, ConnectConfig } from 'ssh2';
+import type { Client as SshClient, ClientChannel, ConnectConfig, SFTPWrapper } from 'ssh2';
 import { Client, SUPPORTED_ALGORITHMS } from './ssh2.js';
 import type { NegotiatedAlgorithms, NoticeLevel, SshAuth, SshTarget } from '@shared/types.js';
 import {
@@ -139,6 +139,26 @@ export class SshConnection {
 
   write(data: string): void {
     this.stream?.write(data);
+  }
+
+  /**
+   * Opens an SFTP channel on the session that is already up, so a transfer costs no
+   * second authentication and reuses the negotiated crypto.
+   */
+  openSftp(): Promise<SFTPWrapper> {
+    return new Promise((resolveSftp, reject) => {
+      if (!this.client) {
+        reject(new Error('The session is not connected.'));
+        return;
+      }
+      this.client.sftp((error, sftp) => {
+        if (error) {
+          reject(new Error(`This device refused an SFTP channel: ${error.message}`));
+          return;
+        }
+        resolveSftp(sftp);
+      });
+    });
   }
 
   resize(cols: number, rows: number): void {

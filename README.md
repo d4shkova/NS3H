@@ -8,7 +8,7 @@ See [`NS3H-design-spec.md`](./NS3H-design-spec.md) for the full brief.
 
 ## Status
 
-Phases 0 through 8 of the build order are in place.
+Phases 0 through 9 of the build order are in place.
 
 | Phase | Scope | State |
 |---|---|---|
@@ -21,7 +21,8 @@ Phases 0 through 8 of the build order are in place.
 | 6 | Tabs and drag-to-split | done |
 | 7 | Log browser: tree, virtualised viewer, search | done |
 | 8 | Quick connect | done |
-| 9+ | SFTP/SCP, export/import, packaging | not started |
+| 9 | SFTP: dual-pane transfer for SSH sessions | done |
+| 10+ | Export/import, packaging | not started |
 
 What works today: quick-connect SSH from the main pane, the full → legacy algorithm retry ladder,
 password / public-key / keyboard-interactive authentication with inline re-prompting, host key
@@ -81,6 +82,15 @@ in Settings, or from the dialog itself.
 Clipboard access goes through the main process rather than `navigator.clipboard`: in a sandboxed
 renderer that API is gated on focus and permissions, which is not a dependency a terminal paste
 can carry.
+
+## File transfer
+
+SFTP opens a channel **on the session that is already up**, so a transfer costs no second
+authentication and reuses the crypto that was negotiated for the shell. A dual pane shows the
+local filesystem beside the device, with per-file arrows and a progress row; large files report
+as they go rather than appearing to hang.
+
+Telnet and serial sessions say so rather than offering a transfer they cannot carry.
 
 ## Panes and terminal ownership
 

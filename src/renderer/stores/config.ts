@@ -22,6 +22,7 @@ export type MainView =
   | { kind: 'credentials' }
   | { kind: 'logs' }
   | { kind: 'log-viewer'; path: string; title: string }
+  | { kind: 'transfer' }
   | { kind: 'host-form'; host: Host | null }
   | { kind: 'credential-form'; credential: Credential | null }
   | { kind: 'settings' };

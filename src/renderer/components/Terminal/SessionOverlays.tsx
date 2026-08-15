@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useSessions } from '@renderer/stores/sessions.js';
+import { useConfig } from '@renderer/stores/config.js';
 import { terminals } from '@renderer/terminals/registry.js';
 import styles from './SessionOverlays.module.css';
 
@@ -16,6 +17,7 @@ export function SessionOverlays(): JSX.Element | null {
   const prompt = useSessions((state) => (activeId ? state.authPrompts[activeId] : undefined));
   const setAuthPrompt = useSessions((state) => state.setAuthPrompt);
   const sendBreak = useSessions((state) => state.sendBreak);
+  const setView = useConfig((state) => state.setView);
   const [breaking, setBreaking] = useState(false);
 
   const tab = tabs.find((entry) => entry.id === activeId) ?? null;
@@ -40,6 +42,16 @@ export function SessionOverlays(): JSX.Element | null {
             }}
           >
             {breaking ? 'Sending…' : 'Send break'}
+          </button>
+        )}
+        {tab.protocol === 'ssh' && (
+          <button
+            type="button"
+            className={styles.button}
+            title="Transfer files over this session"
+            onClick={() => setView({ kind: 'transfer' })}
+          >
+            Files
           </button>
         )}
         <button

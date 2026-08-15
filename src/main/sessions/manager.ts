@@ -15,6 +15,8 @@ import type { SerialConfig } from '@shared/config.js';
 import type { HostKeyIdentity } from '../ssh/fingerprint.js';
 import { KnownHostsStore, verifyHostKey } from '../store/knownHosts.js';
 import type { LogService, SessionLogRequest } from '../logging/index.js';
+import { SftpSession } from '../ssh/sftp.js';
+import type { RemoteEntry, TransferProgress } from '@shared/transfer.js';
 import type { SessionLogWriter } from '../logging/writer.js';
 
 export function newId(prefix: string): string {
@@ -32,6 +34,8 @@ interface Transport {
 interface Session {
   info: SessionInfo;
   connection: Transport;
+  /** Opened on demand for file transfer; SSH sessions only. */
+  sftp?: SftpSession;
   /** Null until the log opens, or for good when logging is off. */
   log: SessionLogWriter | null;
   /**
@@ -245,6 +249,46 @@ export class SessionManager {
     return sessionId;
   }
 
+  /** SFTP runs over the session that is already authenticated (§ phase 9). */
+  private async sftpFor(sessionId: string): Promise<SftpSession> {
+    const session = this.sessions.get(sessionId);
+    if (!session) throw new Error('That session is no longer open.');
+    if (session.info.protocol !== 'ssh') {
+      throw new Error('File transfer needs an SSH session — telnet and serial cannot carry it.');
+    }
+    if (session.sftp) return session.sftp;
+
+    const connection = session.connection as SshConnection;
+    session.sftp = new SftpSession(await connection.openSftp());
+    return session.sftp;
+  }
+
+  async remoteHome(sessionId: string): Promise<string> {
+    return (await this.sftpFor(sessionId)).realpath('.');
+  }
+
+  async remoteList(sessionId: string, path: string): Promise<RemoteEntry[]> {
+    return (await this.sftpFor(sessionId)).list(path);
+  }
+
+  async download(
+    sessionId: string,
+    remotePath: string,
+    localDirectory: string,
+    onProgress: (progress: TransferProgress) => void,
+  ): Promise<string> {
+    return (await this.sftpFor(sessionId)).download(remotePath, localDirectory, onProgress);
+  }
+
+  async upload(
+    sessionId: string,
+    localPath: string,
+    remoteDirectory: string,
+    onProgress: (progress: TransferProgress) => void,
+  ): Promise<string> {
+    return (await this.sftpFor(sessionId)).upload(localPath, remoteDirectory, onProgress);
+  }
+
   /** Serial only — the toolbar button is hidden for other protocols. */
   async sendBreak(sessionId: string): Promise<void> {
     const session = this.sessions.get(sessionId);
@@ -329,6 +373,7 @@ export class SessionManager {
     const session = this.sessions.get(sessionId);
     if (!session) return;
     this.sessions.delete(sessionId);
+    session.sftp?.end();
     await session.log?.close();
   }
 

@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron';
 import { IpcChannel } from '@shared/ipc.js';
 import type { Ns3hApi } from '@shared/api.js';
 import type { SerialConfig } from '@shared/config.js';
+import type { TransferEvent } from '@shared/transfer.js';
 import type {
   AuthPromptRequest,
   HostKeyPromptRequest,
@@ -62,6 +63,21 @@ const api: Ns3hApi = {
 
   serial: {
     list: () => ipcRenderer.invoke(IpcChannel.serialList) as Promise<SerialPortInfo[]>,
+  },
+
+  transfer: {
+    remoteHome: (sessionId: string) =>
+      ipcRenderer.invoke(IpcChannel.transferRemoteHome, sessionId),
+    remoteList: (sessionId: string, path: string) =>
+      ipcRenderer.invoke(IpcChannel.transferRemoteList, sessionId, path),
+    localList: (path: string) => ipcRenderer.invoke(IpcChannel.transferLocalList, path),
+    download: (sessionId: string, remotePath: string, localDirectory: string) =>
+      ipcRenderer.invoke(IpcChannel.transferDownload, sessionId, remotePath, localDirectory),
+    upload: (sessionId: string, localPath: string, remoteDirectory: string) =>
+      ipcRenderer.invoke(IpcChannel.transferUpload, sessionId, localPath, remoteDirectory),
+    chooseDirectory: () => ipcRenderer.invoke(IpcChannel.transferChooseDirectory),
+    onProgress: (handler: (event: TransferEvent) => void) =>
+      subscribe<TransferEvent>(IpcChannel.transferProgress, handler),
   },
 
   session: {

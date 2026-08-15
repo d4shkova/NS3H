@@ -94,8 +94,8 @@ export function HomeView(): JSX.Element {
       icon: '⇅',
       title: 'SFTP / SCP',
       description: 'Move files to and from a device over an SSH session.',
-      detail: () => 'Arrives in phase 9',
-      disabled: true,
+      detail: () => 'Runs over an open SSH session',
+      onOpen: () => setView({ kind: 'transfer' }),
     },
   ];
 
