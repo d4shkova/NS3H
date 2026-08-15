@@ -5,6 +5,7 @@ import { CredentialList } from './CredentialList.js';
 import styles from './Sidebar.module.css';
 
 const SECTIONS: { key: SidebarSection; label: string; icon: string }[] = [
+  { key: 'home', label: 'Home', icon: '⌂' },
   { key: 'hosts', label: 'Hosts', icon: '▤' },
   { key: 'credentials', label: 'Credentials', icon: '⚿' },
   { key: 'logs', label: 'Logs', icon: '≡' },
@@ -28,8 +29,8 @@ export function Sidebar(): JSX.Element {
             className={`${styles.item} ${section === item.key ? styles.active : ''}`}
             onClick={() => {
               setSection(item.key);
-              if (item.key === 'quick') setView({ kind: 'quick' });
-              else if (item.key === 'logs') setView({ kind: 'sessions' });
+              // The sidebar and the main pane show the same thing (§6.3).
+              setView({ kind: item.key });
             }}
           >
             <span aria-hidden="true">{item.icon}</span>
@@ -45,12 +46,17 @@ export function Sidebar(): JSX.Element {
           </p>
         )}
 
+        {section === 'home' && (
+          <p className={styles.placeholder}>
+            Everything the app does, one click away. Sessions keep running while you are here.
+          </p>
+        )}
         {section === 'hosts' && <HostTree />}
         {section === 'credentials' && <CredentialList />}
         {section === 'logs' && (
           <p className={styles.placeholder}>
-            Sessions are being written to disk now. The browser for reading them back —
-            device tree, virtualised viewer, search — arrives in phase 7.
+            One folder per device. The in-app viewer — virtualised, searchable — arrives in
+            phase 7.
           </p>
         )}
         {section === 'quick' && (

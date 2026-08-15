@@ -70,6 +70,8 @@ export interface Settings {
   fontSize: number;
   scrollback: number;
   sidebarWidth: number;
+  /** Warn before pasting more than one line into a session (§ user preference). */
+  pasteWarnMultiline: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -80,6 +82,7 @@ export const DEFAULT_SETTINGS: Settings = {
   fontSize: 13,
   scrollback: 10000,
   sidebarWidth: 20,
+  pasteWarnMultiline: true,
 };
 
 export const EMPTY_HOSTS: HostsFile = { version: 1, folders: [], hosts: [] };

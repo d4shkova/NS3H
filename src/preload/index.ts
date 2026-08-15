@@ -44,6 +44,16 @@ const api: Ns3hApi = {
     reveal: (path: string) => ipcRenderer.invoke(IpcChannel.revealPath, path) as Promise<void>,
   },
 
+  clipboard: {
+    read: () => ipcRenderer.invoke(IpcChannel.clipboardRead) as Promise<string>,
+    write: (text: string) => ipcRenderer.invoke(IpcChannel.clipboardWrite, text) as Promise<void>,
+  },
+
+  logs: {
+    folders: () => ipcRenderer.invoke(IpcChannel.logsListFolders),
+    sessions: (folder: string) => ipcRenderer.invoke(IpcChannel.logsListSessions, folder),
+  },
+
   serial: {
     list: () => ipcRenderer.invoke(IpcChannel.serialList) as Promise<SerialPortInfo[]>,
   },

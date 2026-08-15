@@ -26,6 +26,8 @@ export function normaliseSettings(raw: unknown): Settings {
     scrollback: clamp(settings.scrollback, 100, 1_000_000, DEFAULT_SETTINGS.scrollback),
     // §6.2 — the sidebar is draggable between 15% and 35%.
     sidebarWidth: clamp(settings.sidebarWidth, 15, 35, DEFAULT_SETTINGS.sidebarWidth),
+    // Default on: pasting several lines into a live device is worth a pause.
+    pasteWarnMultiline: settings.pasteWarnMultiline !== false,
   };
 }
 

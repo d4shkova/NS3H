@@ -5,6 +5,7 @@ import own from './SettingsView.module.css';
 export function SettingsView(): JSX.Element {
   const snapshot = useConfig((state) => state.snapshot);
   const chooseLogDirectory = useConfig((state) => state.chooseLogDirectory);
+  const saveSettings = useConfig((state) => state.saveSettings);
   const setView = useConfig((state) => state.setView);
 
   const { logDirectory } = snapshot.settings;
@@ -52,6 +53,27 @@ export function SettingsView(): JSX.Element {
               Reveal in file manager
             </button>
           )}
+        </div>
+
+        <div className={styles.section}>
+          <div className={styles.sectionTitle}>Terminal</div>
+          <p className={own.status}>
+            Selecting text in a session copies it. Right-click pastes.
+          </p>
+          <label className={own.toggle}>
+            <input
+              type="checkbox"
+              checked={snapshot.settings.pasteWarnMultiline}
+              onChange={(event) =>
+                void saveSettings({ pasteWarnMultiline: event.target.checked })
+              }
+            />
+            Warn before pasting more than one line
+          </label>
+          <p className={own.hint}>
+            A multi-line paste runs each line as it arrives. With the warning off, it is
+            sent straight to the device.
+          </p>
         </div>
 
         <div className={styles.section}>

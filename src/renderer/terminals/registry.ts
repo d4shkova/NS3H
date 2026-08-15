@@ -4,6 +4,17 @@ import { SearchAddon } from '@xterm/addon-search';
 import { WebglAddon } from '@xterm/addon-webgl';
 import { ansi, toCrlf, xtermTheme } from '@renderer/components/Terminal/theme.js';
 
+/**
+ * Behaviour the registry cannot decide for itself: whether a multi-line paste needs
+ * confirming, and how to ask. Set once by the app.
+ */
+export interface TerminalHooks {
+  /** Resolves true to go ahead with the paste. */
+  confirmPaste(text: string): Promise<boolean>;
+  /** The user's current preference for warning on a multi-line paste. */
+  warnOnMultilinePaste(): boolean;
+}
+
 export interface SessionTerminal {
   terminal: Terminal;
   fit: FitAddon;
@@ -26,6 +37,14 @@ export interface SessionTerminal {
  */
 class TerminalRegistry {
   private readonly terminals = new Map<string, SessionTerminal>();
+  private hooks: TerminalHooks = {
+    confirmPaste: async () => true,
+    warnOnMultilinePaste: () => true,
+  };
+
+  configure(hooks: TerminalHooks): void {
+    this.hooks = hooks;
+  }
 
   get(sessionId: string): SessionTerminal | undefined {
     return this.terminals.get(sessionId);
@@ -66,6 +85,31 @@ class TerminalRegistry {
 
     const typing = terminal.onData((data) => void window.ns3h.session.write(sessionId, data));
 
+    // Selecting text copies it, the way a terminal emulator is expected to behave.
+    // Copying on mouseup rather than on every selection change keeps one clipboard
+    // write per gesture instead of one per pixel of drag.
+    const copySelection = () => {
+      const selection = terminal.getSelection();
+      if (selection) void window.ns3h.clipboard.write(selection);
+    };
+    element.addEventListener('mouseup', copySelection);
+
+    // Right-click pastes. A paste of more than one line is submitted to the device
+    // line by line the moment it arrives, so it is confirmed first unless the user
+    // has turned that off.
+    const onContextMenu = async (event: MouseEvent) => {
+      event.preventDefault();
+      const text = await window.ns3h.clipboard.read();
+      if (!text) return;
+
+      const multiline = /\r|\n/.test(text.trimEnd());
+      if (multiline && this.hooks.warnOnMultilinePaste()) {
+        if (!(await this.hooks.confirmPaste(text))) return;
+      }
+      void window.ns3h.session.write(sessionId, text);
+    };
+    element.addEventListener('contextmenu', (event) => void onContextMenu(event));
+
     const offData = window.ns3h.session.onData((event) => {
       if (event.sessionId === sessionId) terminal.write(event.data);
     });
@@ -84,6 +128,7 @@ class TerminalRegistry {
       element,
       dispose: () => {
         typing.dispose();
+        element.removeEventListener('mouseup', copySelection);
         offData();
         offNotice();
         terminal.dispose();

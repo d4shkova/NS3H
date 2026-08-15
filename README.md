@@ -37,6 +37,25 @@ All three protocols connect: SSH, telnet, and serial, from Quick connect or a sa
 Sessions are logged to disk automatically, cleaned for readability. Reading them back in-app is
 phase 7 — for now they are plain text files in the directory you choose.
 
+## The home screen
+
+The app opens on a card grid — Quick connect, Hosts, Credentials, Logs, SFTP/SCP — each showing
+live counts, and each opening that thing as a list in the main pane. The sidebar mirrors it: the
+same entry drives both panels. Sessions keep running (and logging) behind whatever is on screen;
+a "back to sessions" control returns to the dock.
+
+## Terminal clipboard
+
+Selecting text in a session copies it. Right-click pastes.
+
+A paste of more than one line is confirmed first, showing the lines that are about to run,
+because each one takes effect on arrival and a device has no undo. The warning can be turned off
+in Settings, or from the dialog itself.
+
+Clipboard access goes through the main process rather than `navigator.clipboard`: in a sandboxed
+renderer that API is gated on focus and permissions, which is not a dependency a terminal paste
+can carry.
+
 ## Panes and terminal ownership
 
 The session area is `dockview`: tabs across the top, and dragging a tab to an edge of

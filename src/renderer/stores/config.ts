@@ -7,14 +7,20 @@ import {
   type Credential,
   type Folder,
   type Host,
+  type Settings,
 } from '@shared/config.js';
 import type { CredentialSecrets } from '@shared/api.js';
 
 /** What the main pane is showing when no session tab is active. */
 export type MainView =
+  /** The landing screen: a card per thing the app does. */
+  | { kind: 'home' }
   /** The session dock. Anything else covers it until dismissed. */
   | { kind: 'sessions' }
   | { kind: 'quick' }
+  | { kind: 'hosts' }
+  | { kind: 'credentials' }
+  | { kind: 'logs' }
   | { kind: 'host-form'; host: Host | null }
   | { kind: 'credential-form'; credential: Credential | null }
   | { kind: 'settings' };
@@ -41,6 +47,7 @@ interface ConfigState {
   saveCredential: (credential: Credential, secrets?: CredentialSecrets) => Promise<void>;
   deleteCredential: (credentialId: string) => Promise<void>;
   chooseLogDirectory: () => Promise<void>;
+  saveSettings: (patch: Partial<Settings>) => Promise<void>;
 }
 
 const EMPTY_SNAPSHOT: ConfigSnapshot = {
@@ -64,7 +71,7 @@ export const useConfig = create<ConfigState>((set, get) => {
     snapshot: EMPTY_SNAPSHOT,
     loaded: false,
     error: null,
-    view: { kind: 'quick' },
+    view: { kind: 'home' },
     expandedFolders: {},
     search: '',
 
@@ -87,7 +94,7 @@ export const useConfig = create<ConfigState>((set, get) => {
 
     saveHost: async (host, secrets) => {
       await apply(() => window.ns3h.config.saveHost(host, secrets));
-      if (!get().error) set({ view: { kind: 'sessions' } });
+      if (!get().error) set({ view: { kind: 'hosts' } });
     },
 
     deleteHost: (hostId) => apply(() => window.ns3h.config.deleteHost(hostId)),
@@ -107,11 +114,13 @@ export const useConfig = create<ConfigState>((set, get) => {
 
     saveCredential: async (credential, secrets) => {
       await apply(() => window.ns3h.config.saveCredential(credential, secrets));
-      if (!get().error) set({ view: { kind: 'sessions' } });
+      if (!get().error) set({ view: { kind: 'credentials' } });
     },
 
     deleteCredential: (credentialId) =>
       apply(() => window.ns3h.config.deleteCredential(credentialId)),
+
+    saveSettings: (patch) => apply(() => window.ns3h.config.saveSettings(patch)),
 
     chooseLogDirectory: async () => {
       try {

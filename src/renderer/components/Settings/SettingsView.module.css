@@ -75,3 +75,23 @@
   line-height: 1.6;
   margin: 0 0 14px;
 }
+
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+
+.toggle input {
+  width: auto;
+  accent-color: var(--accent);
+}
+
+.hint {
+  color: var(--text-tertiary);
+  line-height: 1.55;
+  margin: 0 0 14px;
+  font-size: 12px;
+}

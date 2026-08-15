@@ -5,9 +5,8 @@ import type {
   Host,
   Settings,
 } from './config.js';
-import type {
-  SerialConfig,
-} from './config.js';
+import type { SerialConfig } from './config.js';
+import type { LogFileInfo, LogFolderInfo } from './logs.js';
 import type {
   AuthPromptRequest,
   HostKeyPromptRequest,
@@ -55,6 +54,16 @@ export interface Ns3hApi {
   shell: {
     /** Shows a file in the OS file manager. */
     reveal(path: string): Promise<void>;
+  };
+
+  clipboard: {
+    read(): Promise<string>;
+    write(text: string): Promise<void>;
+  };
+
+  logs: {
+    folders(): Promise<LogFolderInfo[]>;
+    sessions(folder: string): Promise<LogFileInfo[]>;
   };
 
   serial: {

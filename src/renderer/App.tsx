@@ -6,10 +6,16 @@ import { ConnectForm } from './components/Forms/ConnectForm.js';
 import { HostForm } from './components/Forms/HostForm.js';
 import { CredentialForm } from './components/Forms/CredentialForm.js';
 import { SettingsView } from './components/Settings/SettingsView.js';
+import { HomeView } from './components/Home/HomeView.js';
+import { HostsList } from './components/Lists/HostsList.js';
+import { CredentialsList } from './components/Lists/CredentialsList.js';
+import { LogsList } from './components/Lists/LogsList.js';
 import { useConfig } from './stores/config.js';
 import { SessionDock } from './components/Terminal/SessionDock.js';
 import { SessionOverlays } from './components/Terminal/SessionOverlays.js';
 import { HostKeyModal } from './components/Modals/HostKeyModal.js';
+import { PasteConfirmModal } from './components/Modals/PasteConfirmModal.js';
+import { usePaste } from './stores/paste.js';
 import { StatusBar } from './components/StatusBar/StatusBar.js';
 import { terminals } from './terminals/registry.js';
 import { ansi, toCrlf } from './components/Terminal/theme.js';
@@ -37,10 +43,18 @@ export function App(): JSX.Element {
   const loadConfig = useConfig((state) => state.load);
   const configLoaded = useConfig((state) => state.loaded);
   const logDirectory = useConfig((state) => state.snapshot.settings.logDirectory);
+  const pendingPaste = usePaste((state) => state.pending);
 
   useEffect(() => {
     void window.ns3h.platform().then(({ platform }) => setIsMac(platform === 'darwin'));
     void loadConfig();
+
+    // The registry asks the app whether a multi-line paste should go ahead; the
+    // preference is read at paste time so a change in Settings takes effect at once.
+    terminals.configure({
+      confirmPaste: (text) => usePaste.getState().request(text),
+      warnOnMultilinePaste: () => useConfig.getState().snapshot.settings.pasteWarnMultiline,
+    });
   }, [loadConfig]);
 
   useEffect(() => {
@@ -165,7 +179,11 @@ export function App(): JSX.Element {
                     {connectError}
                   </p>
                 )}
+                {view.kind === 'home' && <HomeView />}
                 {view.kind === 'quick' && <ConnectForm />}
+                {view.kind === 'hosts' && <HostsList />}
+                {view.kind === 'credentials' && <CredentialsList />}
+                {view.kind === 'logs' && <LogsList />}
                 {view.kind === 'settings' && <SettingsView />}
                 {view.kind === 'host-form' && (
                   <HostForm key={view.host?.id ?? 'new'} host={view.host} />
@@ -182,6 +200,13 @@ export function App(): JSX.Element {
       </div>
 
       <StatusBar tab={activeTab} />
+
+      {pendingPaste && (
+        <PasteConfirmModal
+          text={pendingPaste.text}
+          onRespond={(paste) => usePaste.getState().respond(paste)}
+        />
+      )}
 
       {hostKeyPrompt && (
         <HostKeyModal

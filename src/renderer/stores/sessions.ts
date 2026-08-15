@@ -23,7 +23,7 @@ export interface SessionTab {
   logPath?: string;
 }
 
-export type SidebarSection = 'hosts' | 'credentials' | 'logs' | 'quick';
+export type SidebarSection = 'home' | 'hosts' | 'credentials' | 'logs' | 'quick';
 
 interface SessionState {
   tabs: SessionTab[];
@@ -57,7 +57,7 @@ interface SessionState {
 export const useSessions = create<SessionState>((set, get) => ({
   tabs: [],
   activeId: null,
-  section: 'quick',
+  section: 'home',
   hostKeyPrompt: null,
   authPrompts: {},
   connectError: null,
@@ -178,7 +178,7 @@ export const useSessions = create<SessionState>((set, get) => ({
       tabs: remaining,
       activeId: activeId === id ? (remaining.at(-1)?.id ?? null) : activeId,
     });
-    if (remaining.length === 0) useConfig.getState().setView({ kind: 'quick' });
+    if (remaining.length === 0) useConfig.getState().setView({ kind: 'home' });
   },
 
   applyStatus: (id, status, detail, summary, logPath) =>

@@ -1,4 +1,4 @@
-import { BrowserWindow, dialog, ipcMain, shell, type WebContents } from 'electron';
+import { BrowserWindow, clipboard, dialog, ipcMain, shell, type WebContents } from 'electron';
 import { IpcChannel } from '@shared/ipc.js';
 import type { OpenSessionResult, SshTarget } from '@shared/types.js';
 import type { Credential, Folder, Host, Settings } from '@shared/config.js';
@@ -9,6 +9,7 @@ import { normaliseCredential } from '../store/credentials.js';
 import { normaliseFolder, normaliseHost } from '../store/hosts.js';
 import { LogService } from '../logging/index.js';
 import { listSerialPorts } from '../serial/ports.js';
+import { listLogFolders, listLogSessions } from '../logging/browse.js';
 import type { SerialConfig } from '@shared/config.js';
 import type { TelnetTargetInput } from '@shared/types.js';
 
@@ -161,6 +162,26 @@ function registerConfigIpc(): void {
   ipcMain.handle(IpcChannel.revealPath, (_event, path: unknown) => {
     shell.showItemInFolder(requireString(path, 'path'));
   });
+
+  // Clipboard goes through main: a sandboxed renderer's navigator.clipboard is
+  // gated on focus and permissions, and a terminal paste cannot depend on that.
+  ipcMain.handle(IpcChannel.clipboardRead, () => clipboard.readText());
+
+  ipcMain.handle(IpcChannel.clipboardWrite, (_event, text: unknown) => {
+    if (typeof text !== 'string' || text.length === 0) return;
+    clipboard.writeText(text);
+  });
+
+  ipcMain.handle(IpcChannel.logsListFolders, async () =>
+    listLogFolders((await config().snapshot()).settings.logDirectory),
+  );
+
+  ipcMain.handle(IpcChannel.logsListSessions, async (_event, folder: unknown) =>
+    listLogSessions(
+      (await config().snapshot()).settings.logDirectory,
+      requireString(folder, 'folder'),
+    ),
+  );
 
   ipcMain.handle(IpcChannel.configSaveSettings, (_event, patch: unknown) => {
     if (typeof patch !== 'object' || patch === null) throw new Error('settings patch must be an object');
