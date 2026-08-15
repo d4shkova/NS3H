@@ -8,7 +8,7 @@ See [`NS3H-design-spec.md`](./NS3H-design-spec.md) for the full brief.
 
 ## Status
 
-Phases 0 through 5 of the build order are in place.
+Phases 0 through 6 of the build order are in place.
 
 | Phase | Scope | State |
 |---|---|---|
@@ -18,7 +18,8 @@ Phases 0 through 5 of the build order are in place.
 | 3 | Hosts and Credentials UI: tree, forms, folders | done |
 | 4 | Logging: sanitiser, writer, folder rules, header block | done |
 | 5 | Telnet + serial: IAC negotiation, port enumeration, send break | done |
-| 6+ | Tabs/splits, log browser, quick connect polish, SFTP, export, packaging | not started |
+| 6 | Tabs and drag-to-split | done |
+| 7+ | Log browser, SFTP, export/import, packaging | not started |
 
 What works today: quick-connect SSH from the main pane, the full → legacy algorithm retry ladder,
 password / public-key / keyboard-interactive authentication with inline re-prompting, host key
@@ -35,6 +36,25 @@ All three protocols connect: SSH, telnet, and serial, from Quick connect or a sa
 
 Sessions are logged to disk automatically, cleaned for readability. Reading them back in-app is
 phase 7 — for now they are plain text files in the directory you choose.
+
+## Panes and terminal ownership
+
+The session area is `dockview`: tabs across the top, and dragging a tab to an edge of
+the terminal area splits the pane that way (§6.4). Its vanilla API is used rather than its
+React bindings, for a specific reason.
+
+**Terminals are owned by a registry outside React** (`renderer/terminals/registry.ts`), keyed
+by session id. Moving a panel between groups unmounts and remounts whatever renders it — with a
+React-owned xterm, every drag would dispose the terminal and take the scrollback with it. The
+session itself would survive, since it lives in main, but the screen would go blank. Instead each
+terminal owns a detached element that panes adopt and release, so a drag is a DOM re-parent and
+the terminal never notices.
+
+That ownership split is also why status handling lives at the app level rather than in a pane
+component: a pane can be unmounted mid-session at any moment.
+
+dockview only mounts the visible panel, so panes re-fit on their own resize, on layout change,
+and on re-attach — a terminal that is not re-fitted keeps a stale column count and wraps.
 
 ## Telnet and serial
 
@@ -179,5 +199,6 @@ src/
     ipc/       typed channel handlers
   preload/     contextBridge API, sandboxed
   renderer/    React UI
+    terminals/ xterm instances, owned outside React so panes can move freely
 shared/        types and channel names used by all three
 ```

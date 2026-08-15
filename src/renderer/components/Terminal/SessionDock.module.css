@@ -1,0 +1,12 @@
+.dock {
+  height: 100%;
+  width: 100%;
+}
+
+.pane {
+  height: 100%;
+  width: 100%;
+  padding: 8px 4px 4px 10px;
+  background: var(--bg-base);
+  box-sizing: border-box;
+}

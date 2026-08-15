@@ -7,9 +7,12 @@ import { HostForm } from './components/Forms/HostForm.js';
 import { CredentialForm } from './components/Forms/CredentialForm.js';
 import { SettingsView } from './components/Settings/SettingsView.js';
 import { useConfig } from './stores/config.js';
-import { TerminalPane } from './components/Terminal/TerminalPane.js';
+import { SessionDock } from './components/Terminal/SessionDock.js';
+import { SessionOverlays } from './components/Terminal/SessionOverlays.js';
 import { HostKeyModal } from './components/Modals/HostKeyModal.js';
 import { StatusBar } from './components/StatusBar/StatusBar.js';
+import { terminals } from './terminals/registry.js';
+import { ansi, toCrlf } from './components/Terminal/theme.js';
 import styles from './App.module.css';
 
 const MIN_SIDEBAR = 15;
@@ -22,11 +25,11 @@ export function App(): JSX.Element {
 
   const tabs = useSessions((state) => state.tabs);
   const activeId = useSessions((state) => state.activeId);
-  const setActive = useSessions((state) => state.setActive);
-  const closeTab = useSessions((state) => state.closeTab);
   const hostKeyPrompt = useSessions((state) => state.hostKeyPrompt);
   const setHostKeyPrompt = useSessions((state) => state.setHostKeyPrompt);
   const setAuthPrompt = useSessions((state) => state.setAuthPrompt);
+  const applyStatus = useSessions((state) => state.applyStatus);
+  const setLogPath = useSessions((state) => state.setLogPath);
   const connectError = useSessions((state) => state.connectError);
   const clearConnectError = useSessions((state) => state.clearConnectError);
   const view = useConfig((state) => state.view);
@@ -42,14 +45,47 @@ export function App(): JSX.Element {
 
   useEffect(() => {
     const offHostKey = window.ns3h.hostKey.onPrompt(setHostKeyPrompt);
-    const offAuth = window.ns3h.auth.onPrompt((request) =>
-      setAuthPrompt(request.sessionId, request),
+    const offAuth = window.ns3h.auth.onPrompt((request) => {
+      setAuthPrompt(request.sessionId, request);
+      // A prompt on a backgrounded session would otherwise wait unseen.
+      useSessions.getState().setActive(request.sessionId);
+      useConfig.getState().setView({ kind: 'sessions' });
+    });
+
+    // Session-wide, not per-pane: a session keeps its state while its pane is being
+    // dragged between groups, or while a form covers the dock entirely.
+    const offStatus = window.ns3h.session.onStatus((event) => {
+      const summary = event.negotiation
+        ? `${event.negotiation.kex} · ${event.negotiation.cipher} · ${event.negotiation.mac}`
+        : undefined;
+      // Read before applying: applyStatus writes the summary, so checking afterwards
+      // would always look like the banner had already been printed.
+      const previous = useSessions.getState().tabs.find((tab) => tab.id === event.sessionId);
+      const alreadyAnnounced = Boolean(previous?.negotiationSummary);
+
+      applyStatus(event.sessionId, event.status, event.detail, summary, event.logPath);
+
+      if (event.status === 'connected' && summary && !alreadyAnnounced) {
+        terminals.write(event.sessionId, ansi.ok(`Connected — ${summary}`));
+      }
+      if (event.detail && (event.status === 'error' || event.status === 'closed')) {
+        const paint = event.status === 'error' ? ansi.error : ansi.info;
+        terminals.write(event.sessionId, '');
+        terminals.write(event.sessionId, paint(toCrlf(event.detail)));
+      }
+    });
+
+    const offLog = window.ns3h.session.onLog((event) =>
+      setLogPath(event.sessionId, event.logPath),
     );
+
     return () => {
       offHostKey();
       offAuth();
+      offStatus();
+      offLog();
     };
-  }, [setHostKeyPrompt, setAuthPrompt]);
+  }, [setHostKeyPrompt, setAuthPrompt, applyStatus, setLogPath]);
 
   const onDragMove = useCallback((event: MouseEvent) => {
     if (!dragging.current) return;
@@ -76,7 +112,7 @@ export function App(): JSX.Element {
    * running in its tab (and, from phase 4, keeps logging), and clicking the tab
    * returns to it.
    */
-  const showForm = view.kind !== 'quick';
+  const showForm = view.kind !== 'sessions';
 
   return (
     <div className={styles.app}>
@@ -110,59 +146,20 @@ export function App(): JSX.Element {
         </div>
 
         <main className={styles.main}>
-          <div className={styles.tabs}>
-            {tabs.map((tab) => (
-              <div
-                key={tab.id}
-                className={`${styles.tab} ${tab.id === activeId && !showForm ? styles.tabActive : ''}`}
-                onClick={() => {
-                  // Selecting a tab dismisses whatever form was covering the pane.
-                  setView({ kind: 'quick' });
-                  setActive(tab.id);
-                }}
-                onKeyDown={(event) => {
-                  if (event.key !== 'Enter') return;
-                  setView({ kind: 'quick' });
-                  setActive(tab.id);
-                }}
-                role="tab"
-                tabIndex={0}
-                aria-selected={tab.id === activeId && !showForm}
-              >
-                <span className={`${styles.tabDot} ${styles[tab.status] ?? ''}`} />
-                {tab.name}
-                <button
-                  type="button"
-                  className={styles.tabClose}
-                  aria-label={`Close ${tab.name}`}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    closeTab(tab.id);
-                  }}
-                >
-                  ✕
-                </button>
-              </div>
-            ))}
-            <button
-              type="button"
-              className={styles.newTab}
-              aria-label="New connection"
-              onClick={() => {
-                setView({ kind: 'quick' });
-                setActive('');
-              }}
-            >
-              +
-            </button>
-          </div>
-
           <div className={styles.panes}>
-            {tabs.map((tab) => (
-              <TerminalPane key={tab.id} tab={tab} active={tab.id === activeId && !showForm} />
-            ))}
-            {(showForm || !activeTab) && (
+            <div className={showForm ? styles.hidden : styles.dockHost}>
+              <SessionDock />
+            </div>
+
+            {showForm && (
               <>
+                {tabs.length > 0 && (
+                  <div className={styles.backBar}>
+                    <button type="button" onClick={() => setView({ kind: 'sessions' })}>
+                      ← Back to {tabs.length} session{tabs.length === 1 ? '' : 's'}
+                    </button>
+                  </div>
+                )}
                 {connectError && (
                   <p className={styles.connectError} role="alert" onClick={clearConnectError}>
                     {connectError}
@@ -170,16 +167,17 @@ export function App(): JSX.Element {
                 )}
                 {view.kind === 'quick' && <ConnectForm />}
                 {view.kind === 'settings' && <SettingsView />}
-                {view.kind === 'host-form' && <HostForm key={view.host?.id ?? 'new'} host={view.host} />}
+                {view.kind === 'host-form' && (
+                  <HostForm key={view.host?.id ?? 'new'} host={view.host} />
+                )}
                 {view.kind === 'credential-form' && (
-                  <CredentialForm
-                    key={view.credential?.id ?? 'new'}
-                    credential={view.credential}
-                  />
+                  <CredentialForm key={view.credential?.id ?? 'new'} credential={view.credential} />
                 )}
               </>
             )}
           </div>
+
+          <SessionOverlays />
         </main>
       </div>
 

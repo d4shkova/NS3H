@@ -7,6 +7,7 @@ import type {
   SshTarget,
 } from '@shared/types.js';
 import type { Host, SerialConfig } from '@shared/config.js';
+import { useConfig } from './config.js';
 
 export interface SessionTab {
   id: string;
@@ -67,6 +68,7 @@ export const useSessions = create<SessionState>((set, get) => ({
   connectTelnet: async (target) => {
     try {
       const { sessionId } = await window.ns3h.session.openTelnet(target);
+      useConfig.getState().setView({ kind: 'sessions' });
       set((state) => ({
         connectError: null,
         tabs: [
@@ -91,6 +93,7 @@ export const useSessions = create<SessionState>((set, get) => ({
   connectSerial: async (name, config) => {
     try {
       const { sessionId } = await window.ns3h.session.openSerial(name, config);
+      useConfig.getState().setView({ kind: 'sessions' });
       set((state) => ({
         connectError: null,
         tabs: [
@@ -123,6 +126,7 @@ export const useSessions = create<SessionState>((set, get) => ({
   connectHost: async (host) => {
     try {
       const { sessionId } = await window.ns3h.session.openHost(host.id);
+      useConfig.getState().setView({ kind: 'sessions' });
       set((state) => ({
         connectError: null,
         tabs: [
@@ -146,6 +150,7 @@ export const useSessions = create<SessionState>((set, get) => ({
 
   connect: async (target) => {
     const { sessionId } = await window.ns3h.session.openSsh(target);
+    useConfig.getState().setView({ kind: 'sessions' });
     set((state) => ({
       tabs: [
         ...state.tabs,
@@ -173,6 +178,7 @@ export const useSessions = create<SessionState>((set, get) => ({
       tabs: remaining,
       activeId: activeId === id ? (remaining.at(-1)?.id ?? null) : activeId,
     });
+    if (remaining.length === 0) useConfig.getState().setView({ kind: 'quick' });
   },
 
   applyStatus: (id, status, detail, summary, logPath) =>

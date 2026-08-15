@@ -29,6 +29,7 @@ export function Sidebar(): JSX.Element {
             onClick={() => {
               setSection(item.key);
               if (item.key === 'quick') setView({ kind: 'quick' });
+              else if (item.key === 'logs') setView({ kind: 'sessions' });
             }}
           >
             <span aria-hidden="true">{item.icon}</span>

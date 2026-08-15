@@ -12,6 +12,8 @@ import type { CredentialSecrets } from '@shared/api.js';
 
 /** What the main pane is showing when no session tab is active. */
 export type MainView =
+  /** The session dock. Anything else covers it until dismissed. */
+  | { kind: 'sessions' }
   | { kind: 'quick' }
   | { kind: 'host-form'; host: Host | null }
   | { kind: 'credential-form'; credential: Credential | null }
@@ -85,7 +87,7 @@ export const useConfig = create<ConfigState>((set, get) => {
 
     saveHost: async (host, secrets) => {
       await apply(() => window.ns3h.config.saveHost(host, secrets));
-      if (!get().error) set({ view: { kind: 'quick' } });
+      if (!get().error) set({ view: { kind: 'sessions' } });
     },
 
     deleteHost: (hostId) => apply(() => window.ns3h.config.deleteHost(hostId)),
@@ -105,7 +107,7 @@ export const useConfig = create<ConfigState>((set, get) => {
 
     saveCredential: async (credential, secrets) => {
       await apply(() => window.ns3h.config.saveCredential(credential, secrets));
-      if (!get().error) set({ view: { kind: 'quick' } });
+      if (!get().error) set({ view: { kind: 'sessions' } });
     },
 
     deleteCredential: (credentialId) =>

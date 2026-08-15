@@ -1,5 +1,6 @@
 @import './tokens.css';
 @import '@xterm/xterm/css/xterm.css';
+@import './dockview.css';
 
 * {
   box-sizing: border-box;
