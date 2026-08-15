@@ -18,6 +18,7 @@ import { SessionOverlays } from './components/Terminal/SessionOverlays.js';
 import { HostKeyModal } from './components/Modals/HostKeyModal.js';
 import { PasteConfirmModal } from './components/Modals/PasteConfirmModal.js';
 import { usePaste } from './stores/paste.js';
+import { paneLayout } from './stores/pane.js';
 import { StatusBar } from './components/StatusBar/StatusBar.js';
 import { terminals } from './terminals/registry.js';
 import { applyTheme } from './theme/apply.js';
@@ -139,7 +140,8 @@ export function App(): JSX.Element {
    * running in its tab (and, from phase 4, keeps logging), and clicking the tab
    * returns to it.
    */
-  const showForm = view.kind !== 'sessions';
+  const { showDock, showHome } = paneLayout(view, tabs.length);
+  const showForm = !showDock;
 
   return (
     <div className={styles.app}>
@@ -194,7 +196,7 @@ export function App(): JSX.Element {
                     {connectError}
                   </p>
                 )}
-                {view.kind === 'home' && <HomeView />}
+                {showHome && <HomeView />}
                 {view.kind === 'quick' && <ConnectForm />}
                 {view.kind === 'hosts' && <HostsList />}
                 {view.kind === 'credentials' && <CredentialsList />}

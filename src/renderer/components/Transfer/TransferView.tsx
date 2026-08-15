@@ -200,6 +200,9 @@ export function TransferView(): JSX.Element {
     }
   };
 
+  /** Back to the sessions if there are any, and to the home screen if there are not. */
+  const leave = () => setView({ kind: tabs.length > 0 ? 'sessions' : 'home' });
+
   const connected = (connection: FileConnection) => {
     setConnections((current) => [...current, connection]);
     setSourceId(connection.id);
@@ -216,12 +219,15 @@ export function TransferView(): JSX.Element {
     return (
       <div className={styles.wrap}>
         <div className={styles.bar}>
+          {/* With a source already open this is the way back to the panes; with none, the
+              form is the whole screen and the only way out is off the page. Setting the
+              view to `transfer` from inside `transfer` did neither. */}
           <button
             type="button"
             className={styles.back}
-            onClick={() => setView({ kind: sources.length > 0 ? 'transfer' : 'home' })}
+            onClick={() => (sources.length > 0 ? setConnecting(false) : leave())}
           >
-            ←
+            {sources.length > 0 ? '← Back' : tabs.length > 0 ? '← Session' : '← Home'}
           </button>
           <h1 className={styles.heading}>File transfer</h1>
         </div>
@@ -246,8 +252,11 @@ export function TransferView(): JSX.Element {
   return (
     <div className={styles.wrap}>
       <div className={styles.bar}>
-        <button type="button" className={styles.back} onClick={() => setView({ kind: 'sessions' })}>
-          ← Session
+        {/* Named for where it actually goes. A transfer connection can be the only thing
+            open — no terminal session behind it — and offering "Session" then leads
+            somewhere that does not exist. */}
+        <button type="button" className={styles.back} onClick={leave}>
+          {tabs.length > 0 ? '← Session' : '← Home'}
         </button>
         <h1 className={styles.heading}>File transfer</h1>
         <select value={sourceId} onChange={(event) => setSourceId(event.target.value)}>
