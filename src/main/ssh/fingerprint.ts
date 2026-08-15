@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { utils } from './ssh2.js';
+import { sshUtilities } from './ssh2.js';
 
 export interface HostKeyIdentity {
   keyType: string;
@@ -20,7 +20,7 @@ export function sha256Fingerprint(keyBlob: Buffer): string {
  */
 export function identifyHostKey(keyBlob: Buffer): HostKeyIdentity {
   const fingerprint = sha256Fingerprint(keyBlob);
-  const parsed = utils.parseKey(keyBlob);
+  const parsed = sshUtilities().parseKey(keyBlob);
   if (!(parsed instanceof Error)) {
     return { keyType: parsed.type, fingerprint };
   }

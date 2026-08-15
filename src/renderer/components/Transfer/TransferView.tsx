@@ -61,12 +61,23 @@ export function TransferView(): JSX.Element {
   }, [loadLocal]);
 
   useEffect(() => {
-    if (!sessionId) return;
+    if (!sessionId) return undefined;
     setError(null);
+    // StrictMode runs this twice in development, and switching sessions quickly can
+    // leave an earlier lookup in flight; a stale result must not overwrite the pane or
+    // report an error for a session the user has already navigated away from.
+    let current = true;
     void window.ns3h.transfer
       .remoteHome(sessionId)
-      .then((home) => loadRemote(sessionId, home))
-      .catch((cause: Error) => setError(cause.message));
+      .then((home) => {
+        if (current) void loadRemote(sessionId, home);
+      })
+      .catch((cause: Error) => {
+        if (current) setError(cause.message);
+      });
+    return () => {
+      current = false;
+    };
   }, [sessionId, loadRemote]);
 
   useEffect(() => {

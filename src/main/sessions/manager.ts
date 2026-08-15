@@ -34,8 +34,9 @@ interface Transport {
 interface Session {
   info: SessionInfo;
   connection: Transport;
-  /** Opened on demand for file transfer; SSH sessions only. */
-  sftp?: SftpSession;
+  /** Opened on demand for file transfer; SSH sessions only. Held as the in-flight
+   * promise so concurrent requests share one channel. */
+  sftp?: Promise<SftpSession>;
   /** Null until the log opens, or for good when logging is off. */
   log: SessionLogWriter | null;
   /**
@@ -250,17 +251,37 @@ export class SessionManager {
   }
 
   /** SFTP runs over the session that is already authenticated (§ phase 9). */
-  private async sftpFor(sessionId: string): Promise<SftpSession> {
+  private sftpFor(sessionId: string): Promise<SftpSession> {
     const session = this.sessions.get(sessionId);
-    if (!session) throw new Error('That session is no longer open.');
+    if (!session) return Promise.reject(new Error('That session is no longer open.'));
     if (session.info.protocol !== 'ssh') {
-      throw new Error('File transfer needs an SSH session — telnet and serial cannot carry it.');
+      return Promise.reject(
+        new Error('File transfer needs an SSH session — telnet and serial cannot carry it.'),
+      );
     }
+    // The in-flight promise is what is cached, not just the result: opening the pane
+    // fires a home lookup and a listing together, and awaiting the result would let
+    // both open their own channel — one of which is then leaked until the session ends.
     if (session.sftp) return session.sftp;
 
     const connection = session.connection as SshConnection;
-    session.sftp = new SftpSession(await connection.openSftp());
-    return session.sftp;
+    const opening = connection.openSftp().then((wrapper) => {
+      // A device that drops the subsystem later must not leave a dead handle cached.
+      const forget = () => {
+        if (session.sftp === opening) session.sftp = undefined;
+      };
+      wrapper.on('close', forget);
+      wrapper.on('end', forget);
+      return new SftpSession(wrapper);
+    });
+
+    session.sftp = opening;
+    opening.catch(() => {
+      // A refusal is retried on the next request rather than remembered forever: the
+      // subsystem can be enabled on the device without reconnecting the session.
+      if (session.sftp === opening) session.sftp = undefined;
+    });
+    return opening;
   }
 
   async remoteHome(sessionId: string): Promise<string> {
@@ -373,7 +394,9 @@ export class SessionManager {
     const session = this.sessions.get(sessionId);
     if (!session) return;
     this.sessions.delete(sessionId);
-    session.sftp?.end();
+    // A channel still being opened is closed as soon as it arrives; a rejected open
+    // has nothing to close, and its error has already been reported to the caller.
+    void session.sftp?.then((sftp) => sftp.end()).catch(() => {});
     await session.log?.close();
   }
 

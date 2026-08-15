@@ -131,6 +131,49 @@ function withId(raw: unknown, prefix: 'hst' | 'crd' | 'fld'): unknown {
     : { ...record, id: newConfigId(prefix) };
 }
 
+/**
+ * A running transfer reports every chunk SFTP hands over — around 32 KB apiece, so a
+ * 1 GB file is tens of thousands of IPC messages and as many React renders, for a
+ * progress bar that moves a fraction of a pixel each time. Progress is coalesced to
+ * this interval; the terminal event always goes through, so the bar still lands on
+ * its final state.
+ */
+const PROGRESS_INTERVAL_MS = 100;
+
+function progressReporter(
+  sender: WebContents,
+  descriptor: { id: string; sessionId: string; direction: 'download' | 'upload'; name: string },
+): {
+  running: (transferred: number, total: number) => void;
+  finish: (status: TransferStatus, detail?: string) => void;
+} {
+  let lastSentAt = 0;
+  let latest: { transferred: number; total: number } | null = null;
+
+  const send = (transferred: number, total: number, status: TransferStatus, detail?: string) => {
+    if (sender.isDestroyed()) return;
+    sender.send(IpcChannel.transferProgress, {
+      ...descriptor, transferred, total, status, detail,
+    });
+  };
+
+  return {
+    running: (transferred, total) => {
+      latest = { transferred, total };
+      const now = Date.now();
+      if (now - lastSentAt < PROGRESS_INTERVAL_MS) return;
+      lastSentAt = now;
+      send(transferred, total, 'running');
+    },
+    finish: (status, detail) => {
+      // `done` reports the byte count that actually moved rather than a synthetic 1/1,
+      // so the last frame the user sees matches the file on disk.
+      if (status === 'done' && latest) send(latest.transferred, latest.total, status);
+      else send(0, 1, status, detail);
+    },
+  };
+}
+
 function registerConfigIpc(): void {
   ipcMain.handle(IpcChannel.configLoad, () => config().snapshot());
 
@@ -376,21 +419,19 @@ export function registerIpc(): void {
 
       // Progress is a stream of events rather than a resolved promise, so a large
       // file shows movement instead of appearing to hang.
-      const report = (transferred: number, total: number, status: TransferStatus, detail?: string) =>
-        event.sender.isDestroyed() ||
-        event.sender.send(IpcChannel.transferProgress, {
-          id, sessionId: session, direction: 'download', name, transferred, total, status, detail,
-        });
+      const report = progressReporter(event.sender, {
+        id, sessionId: session, direction: 'download', name,
+      });
 
       try {
         const target = await managerFor(event.sender).download(
           session, remote, requireString(localDirectory, 'localDirectory'),
-          ({ transferred, total }) => report(transferred, total, 'running'),
+          ({ transferred, total }) => report.running(transferred, total),
         );
-        report(1, 1, 'done');
+        report.finish('done');
         return target;
       } catch (error) {
-        report(0, 1, 'error', (error as Error).message);
+        report.finish('error', (error as Error).message);
         throw error;
       }
     },
@@ -404,21 +445,19 @@ export function registerIpc(): void {
       const local = requireString(localPath, 'localPath');
       const name = local.split(/[\\/]/).pop() ?? local;
 
-      const report = (transferred: number, total: number, status: TransferStatus, detail?: string) =>
-        event.sender.isDestroyed() ||
-        event.sender.send(IpcChannel.transferProgress, {
-          id, sessionId: session, direction: 'upload', name, transferred, total, status, detail,
-        });
+      const report = progressReporter(event.sender, {
+        id, sessionId: session, direction: 'upload', name,
+      });
 
       try {
         const target = await managerFor(event.sender).upload(
           session, local, requireString(remoteDirectory, 'remoteDirectory'),
-          ({ transferred, total }) => report(transferred, total, 'running'),
+          ({ transferred, total }) => report.running(transferred, total),
         );
-        report(1, 1, 'done');
+        report.finish('done');
         return target;
       } catch (error) {
-        report(0, 1, 'error', (error as Error).message);
+        report.finish('error', (error as Error).message);
         throw error;
       }
     },

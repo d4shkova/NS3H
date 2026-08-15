@@ -22,6 +22,8 @@ export interface SessionTerminal {
   search: SearchAddon;
   /** The element the terminal is rendered into. Re-parented, never recreated. */
   element: HTMLElement;
+  /** The last window size sent to the session, so an unchanged fit costs nothing. */
+  reported?: { cols: number; rows: number };
   dispose(): void;
 }
 
@@ -107,7 +109,7 @@ class TerminalRegistry {
     // Right-click pastes. A paste of more than one line is submitted to the device
     // line by line the moment it arrives, so it is confirmed first unless the user
     // has turned that off.
-    const onContextMenu = async (event: MouseEvent) => {
+    const pasteFromClipboard = async (event: MouseEvent) => {
       event.preventDefault();
       const text = await window.ns3h.clipboard.read();
       if (!text) return;
@@ -118,7 +120,8 @@ class TerminalRegistry {
       }
       void window.ns3h.session.write(sessionId, text);
     };
-    element.addEventListener('contextmenu', (event) => void onContextMenu(event));
+    const onContextMenu = (event: MouseEvent) => void pasteFromClipboard(event);
+    element.addEventListener('contextmenu', onContextMenu);
 
     const offData = window.ns3h.session.onData((event) => {
       if (event.sessionId === sessionId) terminal.write(event.data);
@@ -139,6 +142,7 @@ class TerminalRegistry {
       dispose: () => {
         typing.dispose();
         element.removeEventListener('mouseup', copySelection);
+        element.removeEventListener('contextmenu', onContextMenu);
         offData();
         offNotice();
         terminal.dispose();
@@ -160,11 +164,21 @@ class TerminalRegistry {
     return record;
   }
 
+  /**
+   * Re-fits a terminal to its pane. Called from a ResizeObserver and from every
+   * dockview layout change, so it fires in bursts while a splitter is dragged — the
+   * window size is only sent on when it has actually changed, which keeps a drag from
+   * putting a SSH window-change packet on the wire per mouse move.
+   */
   resize(sessionId: string): void {
     const record = this.terminals.get(sessionId);
     if (!record || record.element.clientWidth === 0) return;
     record.fit.fit();
-    void window.ns3h.session.resize(sessionId, record.terminal.cols, record.terminal.rows);
+
+    const { cols, rows } = record.terminal;
+    if (record.reported?.cols === cols && record.reported.rows === rows) return;
+    record.reported = { cols, rows };
+    void window.ns3h.session.resize(sessionId, cols, rows);
   }
 
   /** Writes an app-generated line. The session's terminal is created if needed. */

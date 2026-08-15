@@ -5,7 +5,9 @@ import {
   describeDropped,
   filterAlgorithms,
 } from '../src/main/ssh/algorithms.js';
-import { SUPPORTED_ALGORITHMS as SUPPORTED } from '../src/main/ssh/ssh2.js';
+import { supportedAlgorithms } from '../src/main/ssh/ssh2.js';
+
+const SUPPORTED = supportedAlgorithms();
 
 describe('algorithm policy', () => {
   it('offers modern algorithms before legacy ones', () => {

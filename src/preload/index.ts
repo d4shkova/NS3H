@@ -24,6 +24,35 @@ function subscribe<T>(channel: string, handler: (payload: T) => void): Unsubscri
   return () => ipcRenderer.removeListener(channel, listener);
 }
 
+/**
+ * Coalesces identical in-flight calls onto one round trip.
+ *
+ * Opening the transfer pane asks for the device's home directory from an effect that
+ * React runs twice under StrictMode, and a session-switch can overlap the previous
+ * lookup. Each duplicate opened its own SFTP channel and, on a device with no SFTP
+ * subsystem, logged its own refusal — the same failure printed twice.
+ */
+function coalesce<A extends unknown[], R>(
+  key: (...args: A) => string,
+  call: (...args: A) => Promise<R>,
+): (...args: A) => Promise<R> {
+  const inFlight = new Map<string, Promise<R>>();
+  return (...args: A) => {
+    const id = key(...args);
+    const existing = inFlight.get(id);
+    if (existing) return existing;
+    const pending = call(...args).finally(() => inFlight.delete(id));
+    inFlight.set(id, pending);
+    return pending;
+  };
+}
+
+const remoteHome = coalesce(
+  (sessionId: string) => sessionId,
+  (sessionId: string) =>
+    ipcRenderer.invoke(IpcChannel.transferRemoteHome, sessionId) as Promise<string>,
+);
+
 const api: Ns3hApi = {
   platform: () => ipcRenderer.invoke(IpcChannel.platformInfo) as Promise<{ platform: string }>,
 
@@ -66,8 +95,7 @@ const api: Ns3hApi = {
   },
 
   transfer: {
-    remoteHome: (sessionId: string) =>
-      ipcRenderer.invoke(IpcChannel.transferRemoteHome, sessionId),
+    remoteHome,
     remoteList: (sessionId: string, path: string) =>
       ipcRenderer.invoke(IpcChannel.transferRemoteList, sessionId, path),
     localList: (path: string) => ipcRenderer.invoke(IpcChannel.transferLocalList, path),

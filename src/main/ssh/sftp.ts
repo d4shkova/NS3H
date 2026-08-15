@@ -1,5 +1,5 @@
 import { createReadStream, createWriteStream } from 'node:fs';
-import { readdir, stat } from 'node:fs/promises';
+import { readdir, rm, stat } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 import { pipeline } from 'node:stream/promises';
@@ -88,7 +88,14 @@ export class SftpSession {
       onProgress({ transferred, total: size });
     });
 
-    await pipeline(source, createWriteStream(target));
+    try {
+      await pipeline(source, createWriteStream(target));
+    } catch (error) {
+      // A half-written file is worse than none: it looks like a successful transfer to
+      // anything that opens it later. The transfer error is what the user gets told.
+      await rm(target, { force: true }).catch(() => {});
+      throw error;
+    }
     return target;
   }
 
@@ -140,21 +147,27 @@ export async function listLocal(path: string): Promise<{ path: string; entries: 
   const full = resolve(path || homedir());
   const names = await readdir(full);
 
-  const entries: LocalEntry[] = [];
-  for (const name of names) {
-    try {
-      const info = await stat(join(full, name));
-      entries.push({
-        name,
-        path: join(full, name),
-        directory: info.isDirectory(),
-        size: info.size,
-        modified: info.mtime.toISOString(),
-      });
-    } catch {
-      // Unreadable entries are skipped rather than failing the listing.
-    }
-  }
+  // Stat in parallel: one round trip per file in series makes a directory of a few
+  // thousand entries take seconds on a network mount, and libuv queues the work anyway.
+  const stats = await Promise.all(
+    names.map(async (name): Promise<LocalEntry | null> => {
+      const entryPath = join(full, name);
+      try {
+        const info = await stat(entryPath);
+        return {
+          name,
+          path: entryPath,
+          directory: info.isDirectory(),
+          size: info.size,
+          modified: info.mtime.toISOString(),
+        };
+      } catch {
+        // Unreadable entries are skipped rather than failing the listing.
+        return null;
+      }
+    }),
+  );
+  const entries = stats.filter((entry): entry is LocalEntry => entry !== null);
 
   entries.sort((a, b) => {
     if (a.directory !== b.directory) return a.directory ? -1 : 1;

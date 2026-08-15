@@ -112,6 +112,26 @@ as they go rather than appearing to hang.
 
 Telnet and serial sessions say so rather than offering a transfer they cannot carry.
 
+**A device with no SFTP subsystem is the normal case, not a fault.** Most switches and routers
+run an SSH server without one, and ssh2 reports that as a bare `Channel open failure:` with no
+reason attached. NS3H names the device, keeps whatever reason it did give, and says what to check
+(`ip ssh server sftp` on IOS) — and drops the ssh2 stack, which pointed at protocol internals for
+something the device did deliberately. The channel is opened once per session and shared: the
+home lookup and the first listing arrive together, and one refusal is reported once, not twice.
+
+## Startup output
+
+`npm run dev` prints some lines that are worth knowing the origin of:
+
+- **`Fontconfig warning: ... invalid attribute 'xsi:nil'`** — not NS3H, and not Electron either.
+  These come from the system's own `/etc/fonts/conf.d` files being parsed by Chromium's fontconfig;
+  recent Fedora ships configs that its fontconfig build then complains about. They are harmless,
+  there is nothing in this repository that produces or can suppress them, and they do not appear
+  in a packaged build launched from a desktop entry.
+- **`NS3H: restored DH groups this runtime is missing — modp1, modp2`** — ours, and informational.
+  It confirms the BoringSSL shim below is active, which is what makes `diffie-hellman-group1-sha1`
+  work against pre-2010 gear. Its absence on some other runtime would mean the groups were native.
+
 ## Panes and terminal ownership
 
 The session area is `dockview`: tabs across the top, and dragging a tab to an edge of
@@ -245,7 +265,14 @@ gear, the only key exchange on offer — so those devices failed both rungs of t
 `src/main/ssh/legacyDh.ts` restores the missing groups by handing BoringSSL the standard MODP
 primes explicitly, which it accepts. `src/main/ssh/ssh2.ts` is the only place ssh2 may be loaded
 from, because the shim has to be installed *before* ssh2 captures the crypto function at require
-time. The primes are checked byte-for-byte against OpenSSL's own copies in the unit tests.
+time. The shim runs in that module's body; the ssh2 require itself is deferred to the first SSH
+operation, which keeps ~60 ms of native-binding load off the path to the first window without
+changing the ordering the shim depends on. The primes are checked byte-for-byte against OpenSSL's
+own copies in the unit tests.
+
+`serialport` and `@node-rs/argon2` are loaded the same way — on first use, not at startup. Both
+are native modules, neither is needed to open a window, and between the three roughly 90 ms of
+module loading no longer happens before the app can paint.
 
 Probed under Electron 33 / BoringSSL: `modp1` and `modp2` are missing and now shimmed; `modp5`,
 `modp14`–`modp18`, `3des-cbc`, all AES CBC/CTR modes, `blowfish-cbc`, `rc4`, `hmac-sha1` and

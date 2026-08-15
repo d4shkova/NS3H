@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import type { Client as SshClient, ClientChannel, ConnectConfig, SFTPWrapper } from 'ssh2';
-import { Client, SUPPORTED_ALGORITHMS } from './ssh2.js';
+import { sshClientClass, supportedAlgorithms } from './ssh2.js';
 import type { NegotiatedAlgorithms, NoticeLevel, SshAuth, SshTarget } from '@shared/types.js';
 import {
   FULL_ALGORITHMS,
@@ -9,7 +9,7 @@ import {
   filterAlgorithms,
   type AlgorithmSet,
 } from './algorithms.js';
-import { classifySshError, explainNetworkError } from './errors.js';
+import { classifySshError, explainNetworkError, explainSftpRefusal } from './errors.js';
 import { identifyHostKey, type HostKeyIdentity } from './fingerprint.js';
 import { collectRemoteOffer, describeRemoteOffer, type RemoteOffer } from './handshakeLog.js';
 
@@ -81,7 +81,7 @@ export class SshConnection {
         );
       }
 
-      const { algorithms, dropped } = filterAlgorithms(rung.set, SUPPORTED_ALGORITHMS);
+      const { algorithms, dropped } = filterAlgorithms(rung.set, supportedAlgorithms());
       const droppedLines = describeDropped(dropped);
       if (index === 0 && droppedLines.length > 0) {
         this.callbacks.onNotice(
@@ -153,7 +153,7 @@ export class SshConnection {
       }
       this.client.sftp((error, sftp) => {
         if (error) {
-          reject(new Error(`This device refused an SFTP channel: ${error.message}`));
+          reject(explainSftpRefusal(error, this.target.address));
           return;
         }
         resolveSftp(sftp);
@@ -255,7 +255,7 @@ export class SshConnection {
       };
     }
 
-    const client = new Client();
+    const client = new (sshClientClass())();
     this.client = client;
 
     const offer: RemoteOffer = {};

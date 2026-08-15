@@ -83,6 +83,11 @@ export function App(): JSX.Element {
 
       applyStatus(event.sessionId, event.status, event.detail, summary, event.logPath);
 
+      // A closing session emits a final status after its tab has gone. Writing that
+      // would build a terminal for a pane that no longer exists — it would never be
+      // attached, and never disposed of.
+      if (!useSessions.getState().tabs.some((tab) => tab.id === event.sessionId)) return;
+
       if (event.status === 'connected' && summary && !alreadyAnnounced) {
         terminals.write(event.sessionId, ansi.ok(`Connected — ${summary}`));
       }
