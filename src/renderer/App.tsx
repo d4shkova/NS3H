@@ -18,6 +18,7 @@ import { PasteConfirmModal } from './components/Modals/PasteConfirmModal.js';
 import { usePaste } from './stores/paste.js';
 import { StatusBar } from './components/StatusBar/StatusBar.js';
 import { terminals } from './terminals/registry.js';
+import { applyTheme } from './theme/apply.js';
 import { ansi, toCrlf } from './components/Terminal/theme.js';
 import styles from './App.module.css';
 
@@ -43,6 +44,7 @@ export function App(): JSX.Element {
   const loadConfig = useConfig((state) => state.load);
   const configLoaded = useConfig((state) => state.loaded);
   const logDirectory = useConfig((state) => state.snapshot.settings.logDirectory);
+  const themeId = useConfig((state) => state.snapshot.settings.theme);
   const pendingPaste = usePaste((state) => state.pending);
 
   useEffect(() => {
@@ -100,6 +102,10 @@ export function App(): JSX.Element {
       offLog();
     };
   }, [setHostKeyPrompt, setAuthPrompt, applyStatus, setLogPath]);
+
+  useEffect(() => {
+    applyTheme(themeId);
+  }, [themeId]);
 
   const onDragMove = useCallback((event: MouseEvent) => {
     if (!dragging.current) return;

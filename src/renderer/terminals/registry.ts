@@ -2,7 +2,8 @@ import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { SearchAddon } from '@xterm/addon-search';
 import { WebglAddon } from '@xterm/addon-webgl';
-import { ansi, toCrlf, xtermTheme } from '@renderer/components/Terminal/theme.js';
+import { ansi, toCrlf, xtermThemeFor } from '@renderer/components/Terminal/theme.js';
+import { onThemeChange } from '@renderer/theme/apply.js';
 
 /**
  * Behaviour the registry cannot decide for itself: whether a multi-line paste needs
@@ -37,6 +38,15 @@ export interface SessionTerminal {
  */
 class TerminalRegistry {
   private readonly terminals = new Map<string, SessionTerminal>();
+
+  constructor() {
+    // A theme change repaints every open session, not just new ones.
+    onThemeChange((theme) => {
+      for (const record of this.terminals.values()) {
+        record.terminal.options.theme = xtermThemeFor(theme);
+      }
+    });
+  }
   private hooks: TerminalHooks = {
     confirmPaste: async () => true,
     warnOnMultilinePaste: () => true,
@@ -65,7 +75,7 @@ class TerminalRegistry {
       scrollback,
       cursorBlink: true,
       allowProposedApi: true,
-      theme: xtermTheme,
+      theme: xtermThemeFor(),
     });
 
     const fit = new FitAddon();

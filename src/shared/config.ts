@@ -77,7 +77,7 @@ export interface Settings {
 export const DEFAULT_SETTINGS: Settings = {
   version: 1,
   logDirectory: null,
-  theme: 'dark-red',
+  theme: 'ns3h-dark',
   fontFamily: 'JetBrains Mono',
   fontSize: 13,
   scrollback: 10000,

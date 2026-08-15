@@ -37,6 +37,29 @@ All three protocols connect: SSH, telnet, and serial, from Quick connect or a sa
 Sessions are logged to disk automatically, cleaned for readability. Reading them back in-app is
 phase 7 — for now they are plain text files in the directory you choose.
 
+## Themes
+
+Settings carries a theme picker: fourteen palettes, each previewed as a miniature terminal in
+its own colours. NS3H Dark and Light, Kanagawa (Wave, Dragon, Lotus), Everforest (dark and
+light), Night Owl and Light Owl, Flexoki (dark and light), and three high-contrast Hacker
+palettes. They are NS3H's own renderings of well-known colour schemes, not copies of any
+client's assets.
+
+A theme carries **both halves** — the app's design tokens and the terminal's 16-colour palette —
+in one object (`shared/themes.ts`). Keeping them together is what stops the chrome and the
+session output drifting apart; a light interface wrapped around a black terminal reads as a bug.
+Switching repaints open sessions, not just new ones, and the app's own lines (connection banners,
+failures) use the theme's status colours rather than fixed ones.
+
+Applying a theme writes its tokens onto the document root, so everything styled through the
+tokens follows automatically — including dockview, whose variables are mapped onto them. Only
+terminals need telling, which the registry subscribes for. An unknown theme id in a hand-edited
+settings file falls back to the default instead of leaving the app unstyled.
+
+The tests assert every theme defines every token and the full palette, that a light theme's
+terminal background matches its chrome, and that foreground and background stay far enough apart
+to read — a broken palette fails there rather than in front of you.
+
 ## The home screen
 
 The app opens on a card grid — Quick connect, Hosts, Credentials, Logs, SFTP/SCP — each showing

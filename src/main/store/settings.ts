@@ -1,4 +1,5 @@
 import { DEFAULT_SETTINGS, type Settings } from '@shared/config.js';
+import { DEFAULT_THEME_ID, isKnownTheme } from '@shared/themes.js';
 import { ConfigFile, configPath } from './paths.js';
 import { JsonStore } from './jsonStore.js';
 
@@ -17,7 +18,9 @@ export function normaliseSettings(raw: unknown): Settings {
       typeof settings.logDirectory === 'string' && settings.logDirectory.length > 0
         ? settings.logDirectory
         : null,
-    theme: typeof settings.theme === 'string' ? settings.theme : DEFAULT_SETTINGS.theme,
+    // An unknown id — a hand-edited file, or a theme removed in a later version —
+    // falls back rather than leaving the app unstyled.
+    theme: isKnownTheme(settings.theme) ? settings.theme : DEFAULT_THEME_ID,
     fontFamily:
       typeof settings.fontFamily === 'string' && settings.fontFamily.length > 0
         ? settings.fontFamily

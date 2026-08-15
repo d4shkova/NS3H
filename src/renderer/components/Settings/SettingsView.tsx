@@ -1,4 +1,5 @@
 import { useConfig } from '@renderer/stores/config.js';
+import { ThemePicker } from './ThemePicker.js';
 import styles from '../Forms/form.module.css';
 import own from './SettingsView.module.css';
 
@@ -53,6 +54,15 @@ export function SettingsView(): JSX.Element {
               Reveal in file manager
             </button>
           )}
+        </div>
+
+        <div className={styles.section}>
+          <div className={styles.sectionTitle}>Theme</div>
+          <p className={own.status}>
+            Applies to the interface and to the session output — the palette a device's
+            colours are rendered with.
+          </p>
+          <ThemePicker />
         </div>
 
         <div className={styles.section}>

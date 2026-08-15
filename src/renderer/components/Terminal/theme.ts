@@ -1,36 +1,41 @@
 import type { ITheme } from '@xterm/xterm';
+import type { ThemeDefinition } from '@shared/themes.js';
+import { currentTheme } from '@renderer/theme/apply.js';
 
-/** Derived from the design tokens in §6.1. */
-export const xtermTheme: ITheme = {
-  background: '#0A0A0B',
-  foreground: '#F5F5F7',
-  cursor: '#E5484D',
-  selectionBackground: 'rgba(229, 72, 77, 0.28)',
-  black: '#1B1B1F',
-  brightBlack: '#6A6A72',
-  red: '#E5484D',
-  brightRed: '#F2555A',
-  green: '#3DD68C',
-  brightGreen: '#56E39F',
-  yellow: '#F5A623',
-  brightYellow: '#FFBF47',
-  blue: '#5B9DF5',
-  brightBlue: '#7DB3F7',
-  magenta: '#C678DD',
-  brightMagenta: '#D89BE8',
-  cyan: '#4CC9C0',
-  brightCyan: '#6FDDD5',
-  white: '#D8D8DE',
-  brightWhite: '#FFFFFF',
-};
+/** The active theme's palette, in the shape xterm wants. */
+export function xtermThemeFor(theme: ThemeDefinition = currentTheme()): ITheme {
+  return { ...theme.terminal };
+}
 
 const RESET = '\x1b[0m';
 
+function rgb(hex: string): string {
+  const value = hex.replace('#', '');
+  const full =
+    value.length === 3
+      ? value
+          .split('')
+          .map((char) => char + char)
+          .join('')
+      : value;
+  const number = Number.parseInt(full, 16);
+  return `${(number >> 16) & 255};${(number >> 8) & 255};${number & 255}`;
+}
+
+/**
+ * App-generated lines (connection banners, failures, notices) are written straight
+ * into the terminal, so they are coloured with the theme's status colours rather than
+ * fixed ones — otherwise they would clash with every palette but the default.
+ */
+function paint(colour: string, text: string): string {
+  return `\x1b[38;2;${rgb(colour)}m${text}${RESET}`;
+}
+
 export const ansi = {
-  error: (text: string) => `\x1b[38;2;229;72;77m${text}${RESET}`,
-  warn: (text: string) => `\x1b[38;2;245;166;35m${text}${RESET}`,
-  info: (text: string) => `\x1b[38;2;154;154;162m${text}${RESET}`,
-  ok: (text: string) => `\x1b[38;2;61;214;140m${text}${RESET}`,
+  error: (text: string) => paint(currentTheme().tokens.statusError, text),
+  warn: (text: string) => paint(currentTheme().tokens.statusWarn, text),
+  info: (text: string) => paint(currentTheme().tokens.textSecondary, text),
+  ok: (text: string) => paint(currentTheme().tokens.statusOk, text),
 };
 
 /** Terminals need CRLF; notices are authored with plain newlines. */
