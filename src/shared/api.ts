@@ -6,7 +6,7 @@ import type {
   Settings,
 } from './config.js';
 import type { SerialConfig } from './config.js';
-import type { LogFileInfo, LogFolderInfo } from './logs.js';
+import type { LogDocument, LogFileInfo, LogFolderInfo, LogMatch } from './logs.js';
 import type {
   AuthPromptRequest,
   HostKeyPromptRequest,
@@ -64,6 +64,11 @@ export interface Ns3hApi {
   logs: {
     folders(): Promise<LogFolderInfo[]>;
     sessions(folder: string): Promise<LogFileInfo[]>;
+    /** Opens a session log for reading; the file is split into lines in main. */
+    open(path: string): Promise<LogDocument>;
+    lines(path: string, start: number, count: number): Promise<string[]>;
+    search(path: string, query: string): Promise<LogMatch[]>;
+    close(path: string): Promise<void>;
   };
 
   serial: {

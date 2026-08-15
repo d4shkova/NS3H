@@ -10,6 +10,7 @@ import { HomeView } from './components/Home/HomeView.js';
 import { HostsList } from './components/Lists/HostsList.js';
 import { CredentialsList } from './components/Lists/CredentialsList.js';
 import { LogsList } from './components/Lists/LogsList.js';
+import { LogViewer } from './components/Lists/LogViewer.js';
 import { useConfig } from './stores/config.js';
 import { SessionDock } from './components/Terminal/SessionDock.js';
 import { SessionOverlays } from './components/Terminal/SessionOverlays.js';
@@ -190,6 +191,9 @@ export function App(): JSX.Element {
                 {view.kind === 'hosts' && <HostsList />}
                 {view.kind === 'credentials' && <CredentialsList />}
                 {view.kind === 'logs' && <LogsList />}
+                {view.kind === 'log-viewer' && (
+                  <LogViewer key={view.path} path={view.path} title={view.title} />
+                )}
                 {view.kind === 'settings' && <SettingsView />}
                 {view.kind === 'host-form' && (
                   <HostForm key={view.host?.id ?? 'new'} host={view.host} />

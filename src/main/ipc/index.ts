@@ -10,6 +10,7 @@ import { normaliseFolder, normaliseHost } from '../store/hosts.js';
 import { LogService } from '../logging/index.js';
 import { listSerialPorts } from '../serial/ports.js';
 import { listLogFolders, listLogSessions } from '../logging/browse.js';
+import { LogReader } from '../logging/reader.js';
 import type { SerialConfig } from '@shared/config.js';
 import type { TelnetTargetInput } from '@shared/types.js';
 
@@ -35,6 +36,13 @@ function parseSecrets(raw: unknown): CredentialSecrets | undefined {
  * arriving here is untrusted and shape-checked before use.
  */
 const managers = new Map<number, SessionManager>();
+
+let reader: LogReader | null = null;
+
+function logReader(): LogReader {
+  reader ??= new LogReader(async () => (await config().snapshot()).settings.logDirectory);
+  return reader;
+}
 
 function logService(): LogService {
   return new LogService(async () => (await config().snapshot()).settings);
@@ -182,6 +190,28 @@ function registerConfigIpc(): void {
       requireString(folder, 'folder'),
     ),
   );
+
+  ipcMain.handle(IpcChannel.logsOpen, (_event, path: unknown) =>
+    logReader().open(requireString(path, 'path')),
+  );
+
+  ipcMain.handle(
+    IpcChannel.logsLines,
+    (_event, path: unknown, start: unknown, count: unknown) =>
+      logReader().lines(
+        requireString(path, 'path'),
+        typeof start === 'number' ? start : 0,
+        typeof count === 'number' ? Math.min(count, 5000) : 200,
+      ),
+  );
+
+  ipcMain.handle(IpcChannel.logsSearch, (_event, path: unknown, query: unknown) =>
+    logReader().search(requireString(path, 'path'), typeof query === 'string' ? query : ''),
+  );
+
+  ipcMain.handle(IpcChannel.logsClose, (_event, path: unknown) => {
+    logReader().close(requireString(path, 'path'));
+  });
 
   ipcMain.handle(IpcChannel.configSaveSettings, (_event, patch: unknown) => {
     if (typeof patch !== 'object' || patch === null) throw new Error('settings patch must be an object');

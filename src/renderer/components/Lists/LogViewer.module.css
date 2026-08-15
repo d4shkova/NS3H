@@ -1,0 +1,139 @@
+.wrap {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-base);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-panel);
+  flex: none;
+}
+
+.back {
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 5px 11px;
+  font-size: 12px;
+  flex: none;
+}
+
+.back:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.title {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.meta {
+  font-size: 11.5px;
+  color: var(--text-tertiary);
+  flex: none;
+}
+
+.search {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+}
+
+.search input {
+  width: 190px;
+  font-size: 12px;
+  padding: 5px 9px;
+}
+
+.count {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-tertiary);
+  min-width: 44px;
+  text-align: center;
+}
+
+.search button,
+.reveal {
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 4px 9px;
+  font-size: 12px;
+}
+
+.search button:hover:not(:disabled),
+.reveal:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  border-color: var(--border-focus);
+}
+
+.search button:disabled {
+  color: var(--text-tertiary);
+  cursor: not-allowed;
+}
+
+.scroll {
+  flex: 1;
+  overflow: auto;
+  padding: 6px 0;
+}
+
+.line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  display: flex;
+  gap: 14px;
+  padding: 0 14px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 18px;
+  white-space: pre;
+}
+
+.number {
+  flex: none;
+  width: 56px;
+  text-align: right;
+  color: var(--text-tertiary);
+  user-select: none;
+}
+
+.text {
+  color: var(--text-primary);
+  overflow: hidden;
+}
+
+.match {
+  background: var(--accent-muted);
+}
+
+.current {
+  background: var(--accent);
+}
+
+.current .text,
+.current .number {
+  color: #fff;
+}
+
+.error {
+  color: var(--status-error);
+  padding: 20px;
+  line-height: 1.6;
+}

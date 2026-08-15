@@ -148,6 +148,11 @@
   display: none;
 }
 
+.fill {
+  position: absolute;
+  inset: 0;
+}
+
 .backBar {
   position: absolute;
   top: 10px;

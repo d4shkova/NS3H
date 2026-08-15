@@ -16,3 +16,15 @@ export interface LogFileInfo {
   bytes: number;
   modified: string;
 }
+
+export interface LogDocument {
+  path: string;
+  bytes: number;
+  lineCount: number;
+}
+
+export interface LogMatch {
+  line: number;
+  /** Column of the first hit on that line, for scrolling and highlighting. */
+  column: number;
+}

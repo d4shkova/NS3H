@@ -52,6 +52,12 @@ const api: Ns3hApi = {
   logs: {
     folders: () => ipcRenderer.invoke(IpcChannel.logsListFolders),
     sessions: (folder: string) => ipcRenderer.invoke(IpcChannel.logsListSessions, folder),
+    open: (path: string) => ipcRenderer.invoke(IpcChannel.logsOpen, path),
+    lines: (path: string, start: number, count: number) =>
+      ipcRenderer.invoke(IpcChannel.logsLines, path, start, count),
+    search: (path: string, query: string) =>
+      ipcRenderer.invoke(IpcChannel.logsSearch, path, query),
+    close: (path: string) => ipcRenderer.invoke(IpcChannel.logsClose, path),
   },
 
   serial: {

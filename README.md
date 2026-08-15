@@ -8,7 +8,7 @@ See [`NS3H-design-spec.md`](./NS3H-design-spec.md) for the full brief.
 
 ## Status
 
-Phases 0 through 6 of the build order are in place.
+Phases 0 through 8 of the build order are in place.
 
 | Phase | Scope | State |
 |---|---|---|
@@ -19,7 +19,9 @@ Phases 0 through 6 of the build order are in place.
 | 4 | Logging: sanitiser, writer, folder rules, header block | done |
 | 5 | Telnet + serial: IAC negotiation, port enumeration, send break | done |
 | 6 | Tabs and drag-to-split | done |
-| 7+ | Log browser, SFTP, export/import, packaging | not started |
+| 7 | Log browser: tree, virtualised viewer, search | done |
+| 8 | Quick connect | done |
+| 9+ | SFTP/SCP, export/import, packaging | not started |
 
 What works today: quick-connect SSH from the main pane, the full → legacy algorithm retry ladder,
 password / public-key / keyboard-interactive authentication with inline re-prompting, host key
@@ -34,8 +36,9 @@ OS keychain via `safeStorage`.
 
 All three protocols connect: SSH, telnet, and serial, from Quick connect or a saved host.
 
-Sessions are logged to disk automatically, cleaned for readability. Reading them back in-app is
-phase 7 — for now they are plain text files in the directory you choose.
+Sessions are logged to disk automatically, cleaned for readability, and can be read back in the
+app: the Logs view lists one folder per device, and opening a session shows it in a virtualised
+viewer with search. A quarter-million-line log renders 120 rows at a time.
 
 ## Themes
 

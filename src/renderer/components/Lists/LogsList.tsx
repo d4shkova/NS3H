@@ -71,8 +71,8 @@ export function LogsList(): JSX.Element {
             <h1 className={styles.heading}>Logs</h1>
             <p className={styles.sub}>
               One folder per device, under <code>{logDirectory}</code>. Reading a session
-              in-app — virtualised, searchable — arrives in phase 7; for now these open in
-              your file manager.
+              Open one to read it here — virtualised and searchable, so a
+              <code> show tech-support</code> of tens of megabytes opens without a pause.
             </p>
           </div>
         </div>
@@ -109,12 +109,34 @@ export function LogsList(): JSX.Element {
                   </tr>
                   {open === folder.name &&
                     sessions.map((session) => (
-                      <tr key={session.path} className={styles.child}>
+                      <tr
+                        key={session.path}
+                        className={styles.child}
+                        onDoubleClick={() =>
+                          setView({
+                            kind: 'log-viewer',
+                            path: session.path,
+                            title: `${folder.displayName} · ${session.name}`,
+                          })
+                        }
+                      >
                         <td className={styles.mono}>{session.name}</td>
                         <td />
                         <td className={styles.mono}>{formatBytes(session.bytes)}</td>
                         <td>{formatWhen(session.modified)}</td>
                         <td className={styles.actions}>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setView({
+                                kind: 'log-viewer',
+                                path: session.path,
+                                title: `${folder.displayName} · ${session.name}`,
+                              })
+                            }
+                          >
+                            Open
+                          </button>
                           <button
                             type="button"
                             onClick={() => void window.ns3h.shell.reveal(session.path)}

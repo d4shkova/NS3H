@@ -55,8 +55,8 @@ export function Sidebar(): JSX.Element {
         {section === 'credentials' && <CredentialList />}
         {section === 'logs' && (
           <p className={styles.placeholder}>
-            One folder per device. The in-app viewer — virtualised, searchable — arrives in
-            phase 7.
+            One folder per device. Open a session to read it here — virtualised and
+            searchable, however large it is.
           </p>
         )}
         {section === 'quick' && (
