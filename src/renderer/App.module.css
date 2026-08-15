@@ -108,3 +108,33 @@
   line-height: 1.5;
   cursor: pointer;
 }
+
+.logBanner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 8px 14px;
+  background: var(--accent-muted);
+  border-bottom: 1px solid var(--border);
+  color: var(--text-primary);
+  font-size: 12.5px;
+}
+
+.logBanner strong {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.logBanner button {
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  padding: 4px 12px;
+  font-weight: 600;
+}
+
+.logBanner button:hover {
+  background: var(--accent);
+  color: #fff;
+}

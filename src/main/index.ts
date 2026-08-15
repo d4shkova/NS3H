@@ -1,7 +1,7 @@
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { BrowserWindow, app, shell } from 'electron';
-import { closeAllSessions, registerIpc } from './ipc/index.js';
+import { closeAllSessions, flushAllLogs, registerIpc } from './ipc/index.js';
 import { dhShim } from './ssh/ssh2.js';
 
 const dirname = fileURLToPath(new URL('.', import.meta.url));
@@ -63,6 +63,18 @@ app.on('window-all-closed', () => {
   if (!isMac) app.quit();
 });
 
-app.on('before-quit', () => {
-  closeAllSessions();
+let quitting = false;
+
+// §5.3 — logs flush on session close and on app quit. Quit is deferred until the
+// buffers are on disk, otherwise the last couple of seconds of a session are lost.
+app.on('before-quit', (event) => {
+  if (quitting) return;
+  event.preventDefault();
+  quitting = true;
+  void flushAllLogs()
+    .catch((error) => console.error('NS3H: failed to flush logs on quit:', error))
+    .finally(() => {
+      closeAllSessions();
+      app.quit();
+    });
 });

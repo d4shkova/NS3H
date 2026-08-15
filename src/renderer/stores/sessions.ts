@@ -16,6 +16,8 @@ export interface SessionTab {
   status: SessionStatus;
   detail?: string;
   negotiationSummary?: string;
+  /** Set once main has the log file open — drives the status bar indicator. */
+  logPath?: string;
 }
 
 export type SidebarSection = 'hosts' | 'credentials' | 'logs' | 'quick';
@@ -34,7 +36,13 @@ interface SessionState {
   clearConnectError: () => void;
   setActive: (id: string) => void;
   closeTab: (id: string) => void;
-  applyStatus: (id: string, status: SessionStatus, detail?: string, summary?: string) => void;
+  applyStatus: (
+    id: string,
+    status: SessionStatus,
+    detail?: string,
+    summary?: string,
+    logPath?: string,
+  ) => void;
   setHostKeyPrompt: (request: HostKeyPromptRequest | null) => void;
   setAuthPrompt: (sessionId: string, request: AuthPromptRequest | null) => void;
 }
@@ -109,11 +117,17 @@ export const useSessions = create<SessionState>((set, get) => ({
     });
   },
 
-  applyStatus: (id, status, detail, summary) =>
+  applyStatus: (id, status, detail, summary, logPath) =>
     set((state) => ({
       tabs: state.tabs.map((tab) =>
         tab.id === id
-          ? { ...tab, status, detail, negotiationSummary: summary ?? tab.negotiationSummary }
+          ? {
+              ...tab,
+              status,
+              detail,
+              negotiationSummary: summary ?? tab.negotiationSummary,
+              logPath: logPath ?? tab.logPath,
+            }
           : tab,
       ),
     })),

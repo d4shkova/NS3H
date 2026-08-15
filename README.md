@@ -8,7 +8,7 @@ See [`NS3H-design-spec.md`](./NS3H-design-spec.md) for the full brief.
 
 ## Status
 
-Phases 0 through 3 of the build order are in place.
+Phases 0 through 4 of the build order are in place.
 
 | Phase | Scope | State |
 |---|---|---|
@@ -16,7 +16,7 @@ Phases 0 through 3 of the build order are in place.
 | 1 | SSH core: algorithm ladder, auth, host key trust, xterm.js wiring | done |
 | 2 | Config store: JSON files, migrations, `safeStorage` secrets | done |
 | 3 | Hosts and Credentials UI: tree, forms, folders | done |
-| 4 | Logging: sanitiser, writer, folder rules, header block | not started |
+| 4 | Logging: sanitiser, writer, folder rules, header block | done |
 | 5+ | Telnet, serial, tabs/splits, log browser, quick connect, SFTP, export, packaging | not started |
 
 What works today: quick-connect SSH from the main pane, the full → legacy algorithm retry ladder,
@@ -32,7 +32,28 @@ OS keychain via `safeStorage`.
 
 Telnet and serial hosts can be saved and edited now; connecting them arrives in phase 5.
 
-Sessions are not yet written to disk — that is phase 4.
+Sessions are logged to disk automatically, cleaned for readability. Reading them back in-app is
+phase 7 — for now they are plain text files in the directory you choose.
+
+## Logging
+
+Logging happens in the **main process, on the raw stream**, not in the renderer. A session keeps
+logging with its tab backgrounded, its terminal destroyed, or no terminal ever created — verified
+by driving a session that has no xterm attached at all.
+
+What lands in the file is what the user saw, not what came down the wire. `logging/sanitize.ts`
+runs a streaming state machine that strips ANSI escapes and replays backspace, carriage-return
+and erase-in-line into a one-line buffer, emitting a line only once the device leaves it. That is
+what turns a paged `show running-config` — full of `--More--` prompts the device rubs out with
+backspaces — into something readable. Chunk boundaries fall anywhere, including mid escape
+sequence and mid UTF-8 character, so the tests split the same input at every possible offset and
+assert the result never changes.
+
+Commands appear in the log because the device echoes them; no keystroke capture is involved,
+which is also why passwords stay out — echo is suppressed at password prompts.
+
+Writes are buffered and flushed every two seconds, on session close, and on app quit (quit is
+deferred until the buffers reach disk).
 
 ## Secrets and the keychain
 
@@ -119,6 +140,7 @@ src/
     ssh/       algorithm policy, retry ladder, host key identity, error classification
     store/     hosts, credentials, settings, known-hosts — versioned JSON, atomic writes
     secrets/   safeStorage wrapper over secrets.enc
+    logging/   ANSI/overwrite sanitiser, buffered writer, folder and header rules
     sessions/  per-renderer session registry and prompt correlation
     ipc/       typed channel handlers
   preload/     contextBridge API, sandboxed

@@ -37,6 +37,8 @@ export interface SessionInfo {
   username: string;
   status: SessionStatus;
   negotiation?: NegotiatedAlgorithms;
+  /** Set once the session's log file is open. */
+  logPath?: string;
 }
 
 export interface SessionStatusEvent {
@@ -45,6 +47,8 @@ export interface SessionStatusEvent {
   /** Human-readable detail for `error` and `closed`. */
   detail?: string;
   negotiation?: NegotiatedAlgorithms;
+  /** Set once the session's log file is open (§6.2 logging indicator). */
+  logPath?: string;
 }
 
 export interface SessionDataEvent {

@@ -5,6 +5,7 @@ import { Sidebar } from './components/Sidebar/Sidebar.js';
 import { ConnectForm } from './components/Forms/ConnectForm.js';
 import { HostForm } from './components/Forms/HostForm.js';
 import { CredentialForm } from './components/Forms/CredentialForm.js';
+import { SettingsView } from './components/Settings/SettingsView.js';
 import { useConfig } from './stores/config.js';
 import { TerminalPane } from './components/Terminal/TerminalPane.js';
 import { HostKeyModal } from './components/Modals/HostKeyModal.js';
@@ -31,6 +32,8 @@ export function App(): JSX.Element {
   const view = useConfig((state) => state.view);
   const setView = useConfig((state) => state.setView);
   const loadConfig = useConfig((state) => state.load);
+  const configLoaded = useConfig((state) => state.loaded);
+  const logDirectory = useConfig((state) => state.snapshot.settings.logDirectory);
 
   useEffect(() => {
     void window.ns3h.platform().then(({ platform }) => setIsMac(platform === 'darwin'));
@@ -77,7 +80,19 @@ export function App(): JSX.Element {
 
   return (
     <div className={styles.app}>
-      <TitleBar isMac={isMac} />
+      <TitleBar isMac={isMac} onOpenSettings={() => setView({ kind: 'settings' })} />
+      {/* §4.3 — first run has no log directory; say so loudly rather than silently not logging. */}
+      {configLoaded && !logDirectory && view.kind !== 'settings' && (
+        <div className={styles.logBanner}>
+          <span>
+            Sessions are <strong>not being logged</strong> — no log directory has been chosen yet.
+          </span>
+          <button type="button" onClick={() => setView({ kind: 'settings' })}>
+            Choose a directory
+          </button>
+        </div>
+      )}
+
       <div className={styles.body}>
         <div style={{ width: `${sidebarWidth}%`, display: 'flex', minWidth: 0 }}>
           <div style={{ flex: 1, minWidth: 0, display: 'flex' }}>
@@ -154,6 +169,7 @@ export function App(): JSX.Element {
                   </p>
                 )}
                 {view.kind === 'quick' && <ConnectForm />}
+                {view.kind === 'settings' && <SettingsView />}
                 {view.kind === 'host-form' && <HostForm key={view.host?.id ?? 'new'} host={view.host} />}
                 {view.kind === 'credential-form' && (
                   <CredentialForm

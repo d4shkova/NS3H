@@ -23,6 +23,13 @@ export function newConfigId(prefix: 'hst' | 'crd' | 'fld'): string {
   return `${prefix}_${randomBytes(4).toString('hex')}`;
 }
 
+export interface ResolvedHostSession {
+  target: SshTarget;
+  hostId: string;
+  /** The host's "Log all sessions" setting (§4.1). */
+  logging: boolean;
+}
+
 export interface CredentialSecrets {
   /** Omitted means "unchanged"; an empty string clears the stored secret. */
   password?: string;
@@ -103,19 +110,24 @@ export class ConfigService {
   }
 
   /**
-   * Builds what the SSH layer needs from a saved host. A secret that cannot be read —
-   * no keychain, or never stored — degrades to an inline prompt rather than failing.
+   * Builds what the SSH layer needs from a saved host, plus the logging facts the
+   * session needs. A secret that cannot be read — no keychain, or never stored —
+   * degrades to an inline prompt rather than failing.
    */
-  async resolveTarget(hostId: string): Promise<SshTarget | null> {
+  async resolveTarget(hostId: string): Promise<ResolvedHostSession | null> {
     const host = (await this.hosts.read()).hosts.find((entry) => entry.id === hostId);
     if (!host || host.protocol !== 'ssh' || !host.address) return null;
 
     const auth = await this.resolveAuth(host);
     return {
-      name: host.name,
-      address: host.address,
-      port: host.port ?? 22,
-      auth,
+      target: {
+        name: host.name,
+        address: host.address,
+        port: host.port ?? 22,
+        auth,
+      },
+      hostId: host.id,
+      logging: host.logging,
     };
   }
 

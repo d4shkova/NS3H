@@ -14,7 +14,8 @@ import type { CredentialSecrets } from '@shared/api.js';
 export type MainView =
   | { kind: 'quick' }
   | { kind: 'host-form'; host: Host | null }
-  | { kind: 'credential-form'; credential: Credential | null };
+  | { kind: 'credential-form'; credential: Credential | null }
+  | { kind: 'settings' };
 
 interface ConfigState {
   snapshot: ConfigSnapshot;
@@ -37,6 +38,7 @@ interface ConfigState {
   deleteFolder: (folderId: string) => Promise<void>;
   saveCredential: (credential: Credential, secrets?: CredentialSecrets) => Promise<void>;
   deleteCredential: (credentialId: string) => Promise<void>;
+  chooseLogDirectory: () => Promise<void>;
 }
 
 const EMPTY_SNAPSHOT: ConfigSnapshot = {
@@ -108,5 +110,15 @@ export const useConfig = create<ConfigState>((set, get) => {
 
     deleteCredential: (credentialId) =>
       apply(() => window.ns3h.config.deleteCredential(credentialId)),
+
+    chooseLogDirectory: async () => {
+      try {
+        // Null means the user cancelled the picker — not an error, and not a change.
+        const next = await window.ns3h.config.chooseLogDirectory();
+        if (next) set({ snapshot: next, error: null });
+      } catch (cause) {
+        set({ error: (cause as Error).message });
+      }
+    },
   };
 });

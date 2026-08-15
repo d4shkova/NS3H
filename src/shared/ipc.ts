@@ -9,6 +9,8 @@ export const IpcChannel = {
   configSaveCredential: 'config:save-credential',
   configDeleteCredential: 'config:delete-credential',
   configSaveSettings: 'config:save-settings',
+  configChooseLogDirectory: 'config:choose-log-directory',
+  revealPath: 'shell:reveal-path',
   sessionOpenHost: 'session:open-host',
   sessionOpenSsh: 'session:open-ssh',
   sessionWrite: 'session:write',

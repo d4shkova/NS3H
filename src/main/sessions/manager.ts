@@ -3,6 +3,7 @@ import type { WebContents } from 'electron';
 import type {
   AuthPromptRequest,
   HostKeyPromptRequest,
+  NegotiatedAlgorithms,
   NoticeLevel,
   SessionInfo,
   SshTarget,
@@ -11,6 +12,8 @@ import { IpcChannel } from '@shared/ipc.js';
 import { SshConnection } from '../ssh/connection.js';
 import type { HostKeyIdentity } from '../ssh/fingerprint.js';
 import { KnownHostsStore, verifyHostKey } from '../store/knownHosts.js';
+import type { LogService } from '../logging/index.js';
+import type { SessionLogWriter } from '../logging/writer.js';
 
 export function newId(prefix: string): string {
   return `${prefix}_${randomBytes(4).toString('hex')}`;
@@ -19,6 +22,21 @@ export function newId(prefix: string): string {
 interface Session {
   info: SessionInfo;
   connection: SshConnection;
+  /** Null until the log opens, or for good when logging is off. */
+  log: SessionLogWriter | null;
+  /**
+   * Output that arrived while the log file was still being opened. Small and
+   * short-lived, but dropping it would lose the device's banner and first prompt.
+   */
+  pending: Buffer[];
+  logging: boolean;
+}
+
+export interface OpenSshOptions {
+  /** Absent for quick connections, which log under `_quick/<address>/`. */
+  hostId?: string;
+  /** Per §5.1 quick connections always log; saved hosts follow their own setting. */
+  logging: boolean;
 }
 
 type Pending<T> = { resolve: (value: T) => void };
@@ -30,10 +48,11 @@ export class SessionManager {
 
   constructor(
     private readonly sender: WebContents,
+    private readonly logs: LogService | null = null,
     private readonly knownHosts = new KnownHostsStore(),
   ) {}
 
-  openSsh(target: SshTarget): string {
+  openSsh(target: SshTarget, options: OpenSshOptions = { logging: true }): string {
     const sessionId = newId('ses');
     const info: SessionInfo = {
       id: sessionId,
@@ -46,21 +65,25 @@ export class SessionManager {
     };
 
     const connection = new SshConnection(target, {
-      onData: (chunk) => this.emitData(sessionId, chunk),
+      onData: (chunk) => {
+        this.record(sessionId, chunk);
+        this.emitData(sessionId, chunk);
+      },
       onConnected: (negotiation) => {
         info.status = 'connected';
         info.negotiation = negotiation;
         this.emit(IpcChannel.sessionStatus, { sessionId, status: 'connected', negotiation });
+        void this.startLog(sessionId, target, options, negotiation);
       },
       onClosed: (detail) => {
         info.status = 'closed';
         this.emit(IpcChannel.sessionStatus, { sessionId, status: 'closed', detail });
-        this.sessions.delete(sessionId);
+        void this.finish(sessionId);
       },
       onError: (detail) => {
         info.status = 'error';
         this.emit(IpcChannel.sessionStatus, { sessionId, status: 'error', detail });
-        this.sessions.delete(sessionId);
+        void this.finish(sessionId);
       },
       onNotice: (level: NoticeLevel, text: string) =>
         this.emit(IpcChannel.sessionNotice, { sessionId, level, text }),
@@ -68,7 +91,13 @@ export class SessionManager {
       promptAuth: (request) => this.askAuth(sessionId, request),
     });
 
-    this.sessions.set(sessionId, { info, connection });
+    this.sessions.set(sessionId, {
+      info,
+      connection,
+      log: null,
+      pending: [],
+      logging: options.logging,
+    });
     this.emit(IpcChannel.sessionStatus, { sessionId, status: 'connecting' });
     void connection.open();
     return sessionId;
@@ -86,11 +115,81 @@ export class SessionManager {
     const session = this.sessions.get(sessionId);
     if (!session) return;
     session.connection.close();
-    this.sessions.delete(sessionId);
+    void this.finish(sessionId);
   }
 
   closeAll(): void {
     for (const id of [...this.sessions.keys()]) this.close(id);
+  }
+
+  /** Flushes every open log — called on app quit so nothing is left in a buffer. */
+  async flushAll(): Promise<void> {
+    await Promise.all([...this.sessions.values()].map((session) => session.log?.close()));
+  }
+
+  /**
+   * §2 — logging happens in main, on the raw stream. The terminal can be backgrounded
+   * or destroyed and the session keeps writing.
+   */
+  private record(sessionId: string, chunk: Buffer): void {
+    const session = this.sessions.get(sessionId);
+    if (!session || !session.logging) return;
+    if (session.log) session.log.write(chunk);
+    else session.pending.push(Buffer.from(chunk));
+  }
+
+  private async startLog(
+    sessionId: string,
+    target: SshTarget,
+    options: OpenSshOptions,
+    negotiation: NegotiatedAlgorithms,
+  ): Promise<void> {
+    const session = this.sessions.get(sessionId);
+    if (!session || !this.logs || !options.logging) return;
+
+    try {
+      const log = await this.logs.begin({
+        hostId: options.hostId,
+        name: target.name,
+        address: target.address,
+        port: target.port,
+        protocol: 'ssh',
+        user: target.auth.username,
+        crypto: {
+          kex: negotiation.kex,
+          cipher: negotiation.cipher,
+          mac: negotiation.mac,
+          hostKey: `${negotiation.hostKeyType} ${negotiation.fingerprint}`,
+        },
+      });
+      if (!log) return; // no log directory chosen yet
+
+      for (const chunk of session.pending) log.write(chunk);
+      session.pending = [];
+      session.log = log;
+      session.info.logPath = log.path;
+      this.emit(IpcChannel.sessionStatus, {
+        sessionId,
+        status: session.info.status,
+        negotiation,
+        logPath: log.path,
+      });
+    } catch (error) {
+      session.logging = false;
+      session.pending = [];
+      this.emit(IpcChannel.sessionNotice, {
+        sessionId,
+        level: 'error',
+        text: `Session logging is off: ${(error as Error).message}`,
+      });
+    }
+  }
+
+  private async finish(sessionId: string): Promise<void> {
+    const session = this.sessions.get(sessionId);
+    if (!session) return;
+    this.sessions.delete(sessionId);
+    await session.log?.close();
   }
 
   respondHostKey(promptId: string, accepted: boolean): void {

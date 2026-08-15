@@ -131,9 +131,15 @@ describe('ConfigService', () => {
     );
     await service.saveHost(host({ credentialId: 'crd_1' }));
 
-    const target = await service.resolveTarget('hst_1');
-    expect(target).toMatchObject({ address: '10.1.1.5', port: 22 });
-    expect(target?.auth).toEqual({ kind: 'password', username: 'admin', password: 'hunter2' });
+    const resolved = await service.resolveTarget('hst_1');
+    expect(resolved?.target).toMatchObject({ address: '10.1.1.5', port: 22 });
+    expect(resolved?.hostId).toBe('hst_1');
+    expect(resolved?.logging).toBe(true);
+    expect(resolved?.target.auth).toEqual({
+      kind: 'password',
+      username: 'admin',
+      password: 'hunter2',
+    });
   });
 
   it('degrades to an inline prompt when the secret cannot be read', async () => {
@@ -147,7 +153,7 @@ describe('ConfigService', () => {
     );
     await service.saveHost(host({ credentialId: 'crd_1' }));
 
-    expect((await service.resolveTarget('hst_1'))?.auth).toEqual({
+    expect((await service.resolveTarget('hst_1'))?.target.auth).toEqual({
       kind: 'prompt',
       username: 'admin',
     });
@@ -168,7 +174,7 @@ describe('ConfigService', () => {
 
     expect(snapshot.hosts.hosts).toHaveLength(1);
     expect(snapshot.secrets.available).toBe(false);
-    expect((await service.resolveTarget('hst_1'))?.auth).toEqual({
+    expect((await service.resolveTarget('hst_1'))?.target.auth).toEqual({
       kind: 'prompt',
       username: 'cisco',
     });
@@ -185,7 +191,7 @@ describe('ConfigService', () => {
     );
 
     expect(await secrets.get('hst_1', 'password')).toBe('enable');
-    expect((await service.resolveTarget('hst_1'))?.auth).toEqual({
+    expect((await service.resolveTarget('hst_1'))?.target.auth).toEqual({
       kind: 'password',
       username: 'cisco',
       password: 'enable',

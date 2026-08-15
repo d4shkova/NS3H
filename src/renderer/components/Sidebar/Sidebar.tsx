@@ -48,13 +48,14 @@ export function Sidebar(): JSX.Element {
         {section === 'credentials' && <CredentialList />}
         {section === 'logs' && (
           <p className={styles.placeholder}>
-            The log browser arrives once sessions are being written to disk (phases 4, 7).
+            Sessions are being written to disk now. The browser for reading them back —
+            device tree, virtualised viewer, search — arrives in phase 7.
           </p>
         )}
         {section === 'quick' && (
           <p className={styles.placeholder}>
-            Connect to anything without saving it. The form is in the main pane; sessions log to{' '}
-            <code>_quick/</code> once logging lands.
+            Connect to anything without saving it. The form is in the main pane; sessions log
+            to <code>_quick/&lt;address&gt;/</code>.
           </p>
         )}
       </div>

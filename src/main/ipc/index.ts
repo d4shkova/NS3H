@@ -1,4 +1,4 @@
-import { BrowserWindow, ipcMain, type WebContents } from 'electron';
+import { BrowserWindow, dialog, ipcMain, shell, type WebContents } from 'electron';
 import { IpcChannel } from '@shared/ipc.js';
 import type { OpenSessionResult, SshTarget } from '@shared/types.js';
 import type { Credential, Folder, Host, Settings } from '@shared/config.js';
@@ -7,6 +7,7 @@ import { secrets } from '../secrets/index.js';
 import { ConfigService, newConfigId, type CredentialSecrets } from '../store/index.js';
 import { normaliseCredential } from '../store/credentials.js';
 import { normaliseFolder, normaliseHost } from '../store/hosts.js';
+import { LogService } from '../logging/index.js';
 
 let configService: ConfigService | null = null;
 
@@ -31,10 +32,14 @@ function parseSecrets(raw: unknown): CredentialSecrets | undefined {
  */
 const managers = new Map<number, SessionManager>();
 
+function logService(): LogService {
+  return new LogService(async () => (await config().snapshot()).settings);
+}
+
 function managerFor(sender: WebContents): SessionManager {
   let manager = managers.get(sender.id);
   if (!manager) {
-    manager = new SessionManager(sender);
+    manager = new SessionManager(sender, logService());
     managers.set(sender.id, manager);
     sender.once('destroyed', () => {
       manager?.closeAll();
@@ -109,6 +114,23 @@ function registerConfigIpc(): void {
     config().deleteCredential(requireString(credentialId, 'credentialId')),
   );
 
+  ipcMain.handle(IpcChannel.configChooseLogDirectory, async (event) => {
+    const window = BrowserWindow.fromWebContents(event.sender);
+    const result = await (window
+      ? dialog.showOpenDialog(window, {
+          title: 'Choose a directory for session logs',
+          properties: ['openDirectory', 'createDirectory'],
+        })
+      : dialog.showOpenDialog({ properties: ['openDirectory', 'createDirectory'] }));
+
+    if (result.canceled || result.filePaths.length === 0) return null;
+    return config().saveSettings({ logDirectory: result.filePaths[0] });
+  });
+
+  ipcMain.handle(IpcChannel.revealPath, (_event, path: unknown) => {
+    shell.showItemInFolder(requireString(path, 'path'));
+  });
+
   ipcMain.handle(IpcChannel.configSaveSettings, (_event, patch: unknown) => {
     if (typeof patch !== 'object' || patch === null) throw new Error('settings patch must be an object');
     return config().saveSettings(patch as Partial<Settings>);
@@ -119,13 +141,19 @@ export function registerIpc(): void {
   registerConfigIpc();
 
   ipcMain.handle(IpcChannel.sessionOpenHost, async (event, hostId: unknown) => {
-    const target = await config().resolveTarget(requireString(hostId, 'hostId'));
-    if (!target) throw new Error('That host cannot be opened as an SSH session.');
-    return { sessionId: managerFor(event.sender).openSsh(target) };
+    const resolved = await config().resolveTarget(requireString(hostId, 'hostId'));
+    if (!resolved) throw new Error('That host cannot be opened as an SSH session.');
+    return {
+      sessionId: managerFor(event.sender).openSsh(resolved.target, {
+        hostId: resolved.hostId,
+        logging: resolved.logging,
+      }),
+    };
   });
 
   ipcMain.handle(IpcChannel.sessionOpenSsh, (event, raw): OpenSessionResult => {
-    const sessionId = managerFor(event.sender).openSsh(parseTarget(raw));
+    // Quick connections have no saved host, so they always log, under `_quick/`.
+    const sessionId = managerFor(event.sender).openSsh(parseTarget(raw), { logging: true });
     return { sessionId };
   });
 
@@ -182,4 +210,9 @@ export function registerIpc(): void {
 export function closeAllSessions(): void {
   for (const manager of managers.values()) manager.closeAll();
   managers.clear();
+}
+
+/** Gives every open log a chance to flush before the process goes away (§5.3). */
+export async function flushAllLogs(): Promise<void> {
+  await Promise.all([...managers.values()].map((manager) => manager.flushAll()));
 }

@@ -55,3 +55,18 @@
   font-family: var(--font-mono);
   flex: none;
 }
+
+.logging {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-secondary);
+}
+
+/* §6.2 — a small red dot while the session is actively writing to disk. */
+.recording {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+}

@@ -31,6 +31,15 @@ export function StatusBar({ tab }: Props): JSX.Element {
         ssh
         <span className={styles.sep}>·</span>
         {LABEL[tab.status]}
+        {tab.logPath && tab.status === 'connected' && (
+          <>
+            <span className={styles.sep}>·</span>
+            <span className={styles.logging} title={tab.logPath}>
+              <span className={styles.recording} />
+              logging
+            </span>
+          </>
+        )}
         {tab.negotiationSummary && (
           <>
             <span className={styles.sep}>·</span>

@@ -21,6 +21,20 @@
   color: var(--text-secondary);
 }
 
+/* Sits left of the three window controls (3 x 46px) on Windows and Linux. */
+.left {
+  position: absolute;
+  right: 138px;
+  top: 0;
+  height: 100%;
+  display: flex;
+  -webkit-app-region: no-drag;
+}
+
+.macLeft {
+  right: 8px;
+}
+
 .controls {
   position: absolute;
   right: 0;

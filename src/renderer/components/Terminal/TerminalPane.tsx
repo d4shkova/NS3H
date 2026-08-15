@@ -68,7 +68,7 @@ export function TerminalPane({ tab, active }: Props): JSX.Element {
       const summary = event.negotiation
         ? `${event.negotiation.kex} · ${event.negotiation.cipher} · ${event.negotiation.mac}`
         : undefined;
-      applyStatus(tab.id, event.status, event.detail, summary);
+      applyStatus(tab.id, event.status, event.detail, summary, event.logPath);
       if (event.status === 'connected' && summary) {
         term.writeln(ansi.ok(`Connected — ${summary}`));
       }

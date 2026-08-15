@@ -42,6 +42,13 @@ export interface Ns3hApi {
     ): Promise<ConfigSnapshot>;
     deleteCredential(credentialId: string): Promise<ConfigSnapshot>;
     saveSettings(patch: Partial<Settings>): Promise<ConfigSnapshot>;
+    /** Opens a native directory picker and stores the choice. Null if cancelled. */
+    chooseLogDirectory(): Promise<ConfigSnapshot | null>;
+  };
+
+  shell: {
+    /** Shows a file in the OS file manager. */
+    reveal(path: string): Promise<void>;
   };
 
   session: {

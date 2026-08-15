@@ -1,0 +1,77 @@
+.pathRow {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.path {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  background: var(--bg-base);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+}
+
+.unset {
+  color: var(--status-warn);
+  border-color: var(--status-warn);
+}
+
+.choose {
+  flex: none;
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+  border-radius: var(--radius-sm);
+  padding: 8px 16px;
+}
+
+.choose:hover {
+  background: var(--accent-hover);
+}
+
+.warning {
+  color: var(--text-secondary);
+  line-height: 1.6;
+  border-left: 2px solid var(--status-warn);
+  padding-left: 12px;
+  margin: 16px 0;
+}
+
+.warning strong {
+  color: var(--status-warn);
+  font-weight: 600;
+}
+
+.warning code {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-primary);
+}
+
+.reveal {
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 7px 12px;
+  margin-bottom: 14px;
+}
+
+.reveal:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.status {
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin: 0 0 14px;
+}
