@@ -7,7 +7,13 @@ import type {
 } from './config.js';
 import type { SerialConfig } from './config.js';
 import type { LogDocument, LogFileInfo, LogFolderInfo, LogMatch } from './logs.js';
-import type { LocalEntry, RemoteEntry, TransferEvent } from './transfer.js';
+import type {
+  ImportPreview,
+  ImportRequest,
+  LocalEntry,
+  RemoteEntry,
+  TransferEvent,
+} from './transfer.js';
 import type {
   AuthPromptRequest,
   HostKeyPromptRequest,
@@ -86,6 +92,18 @@ export interface Ns3hApi {
     upload(sessionId: string, localPath: string, remoteDirectory: string): Promise<string>;
     chooseDirectory(): Promise<string | null>;
     onProgress(handler: (event: TransferEvent) => void): Unsubscribe;
+  };
+
+  backup: {
+    /** Config only: no credentials, no secrets. Returns the path, or null if cancelled. */
+    exportConfig(): Promise<string | null>;
+    /** Everything, encrypted under a passphrase. */
+    exportBundle(passphrase: string): Promise<string | null>;
+    /** Opens a file picker and reports what importing it would do. */
+    choose(): Promise<{ path: string; preview: ImportPreview } | null>;
+    /** Re-reads a chosen backup once its passphrase is known. */
+    preview(path: string, passphrase: string): Promise<ImportPreview>;
+    apply(request: ImportRequest): Promise<ConfigSnapshot>;
   };
 
   session: {

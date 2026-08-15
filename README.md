@@ -8,7 +8,7 @@ See [`NS3H-design-spec.md`](./NS3H-design-spec.md) for the full brief.
 
 ## Status
 
-Phases 0 through 9 of the build order are in place.
+Phases 0 through 10 of the build order are in place.
 
 | Phase | Scope | State |
 |---|---|---|
@@ -22,7 +22,8 @@ Phases 0 through 9 of the build order are in place.
 | 7 | Log browser: tree, virtualised viewer, search | done |
 | 8 | Quick connect | done |
 | 9 | SFTP: dual-pane transfer for SSH sessions | done |
-| 10+ | Export/import, packaging | not started |
+| 10 | Export / import: both formats | done |
+| 11 | Packaging: electron-builder, CI matrix, README | not started |
 
 What works today: quick-connect SSH from the main pane, the full → legacy algorithm retry ladder,
 password / public-key / keyboard-interactive authentication with inline re-prompting, host key
@@ -82,6 +83,25 @@ in Settings, or from the dialog itself.
 Clipboard access goes through the main process rather than `navigator.clipboard`: in a sandboxed
 renderer that API is gated on focus and permissions, which is not a dependency a terminal paste
 can carry.
+
+## Export and import
+
+Two separate actions in Settings, because they have different consequences.
+
+**Export configuration** writes hosts, folders and settings as readable JSON — no credentials, no
+secrets, no known-hosts. Safe to email or commit.
+
+**Export with credentials** adds the credential list and its secrets, encrypted under a
+passphrase: Argon2id (m=64MB, t=3, p=4) for the key, AES-256-GCM for the payload. Version, salt
+and nonce sit in the header in the clear; everything else is ciphertext. The KDF parameters are
+read back from the header rather than assumed, so a later change to the defaults cannot strand an
+old backup. Private keys are never included — only the path recorded for them, and a key that is
+not where the backup says it is gets flagged on import.
+
+**Import accepts either format and merges rather than replacing.** New ids are added; a colliding
+id is listed with what is here and what would replace it, and nothing is overwritten unless it is
+ticked. A wrong passphrase says so — GCM authentication cannot distinguish that from a tampered
+file, and the message does not pretend otherwise.
 
 ## File transfer
 

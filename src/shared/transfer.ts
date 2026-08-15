@@ -33,3 +33,27 @@ export interface TransferEvent {
   status: 'running' | 'done' | 'error';
   detail?: string;
 }
+
+export interface Collision {
+  kind: 'host' | 'folder' | 'credential';
+  id: string;
+  existing: string;
+  incoming: string;
+}
+
+export interface ImportPreview {
+  kind: 'config' | 'bundle';
+  /** A backup needs its passphrase before anything can be reported. */
+  needsPassphrase?: boolean;
+  added: { hosts: number; folders: number; credentials: number };
+  collisions: Collision[];
+  /** §7 — key files that are not where the backup says they are. */
+  missingKeys: { id: string; name: string; keyPath: string }[];
+}
+
+export interface ImportRequest {
+  path: string;
+  passphrase?: string;
+  /** Per-id: true to overwrite, absent to keep what is here. */
+  resolutions?: Record<string, boolean>;
+}

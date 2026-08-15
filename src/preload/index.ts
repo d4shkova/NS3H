@@ -80,6 +80,16 @@ const api: Ns3hApi = {
       subscribe<TransferEvent>(IpcChannel.transferProgress, handler),
   },
 
+  backup: {
+    exportConfig: () => ipcRenderer.invoke(IpcChannel.exportConfig),
+    exportBundle: (passphrase: string) =>
+      ipcRenderer.invoke(IpcChannel.exportBundle, passphrase),
+    choose: () => ipcRenderer.invoke(IpcChannel.importPreview),
+    preview: (path: string, passphrase: string) =>
+      ipcRenderer.invoke(IpcChannel.importPreview, path, passphrase),
+    apply: (request) => ipcRenderer.invoke(IpcChannel.importApply, request),
+  },
+
   session: {
     openHost: (hostId: string) =>
       ipcRenderer.invoke(IpcChannel.sessionOpenHost, hostId) as Promise<OpenSessionResult>,

@@ -50,6 +50,8 @@ interface ConfigState {
   deleteCredential: (credentialId: string) => Promise<void>;
   chooseLogDirectory: () => Promise<void>;
   saveSettings: (patch: Partial<Settings>) => Promise<void>;
+  /** Used after an import, which returns the whole snapshot from main. */
+  replaceSnapshot: (snapshot: ConfigSnapshot) => void;
 }
 
 const EMPTY_SNAPSHOT: ConfigSnapshot = {
@@ -123,6 +125,8 @@ export const useConfig = create<ConfigState>((set, get) => {
       apply(() => window.ns3h.config.deleteCredential(credentialId)),
 
     saveSettings: (patch) => apply(() => window.ns3h.config.saveSettings(patch)),
+
+    replaceSnapshot: (snapshot) => set({ snapshot, error: null }),
 
     chooseLogDirectory: async () => {
       try {

@@ -12,6 +12,7 @@ import { listSerialPorts } from '../serial/ports.js';
 import { listLogFolders, listLogSessions } from '../logging/browse.js';
 import { LogReader } from '../logging/reader.js';
 import { listLocal } from '../ssh/sftp.js';
+import { TransferService, bundleFileName, configFileName } from '../transfer/index.js';
 import { randomBytes } from 'node:crypto';
 import type { SerialConfig } from '@shared/config.js';
 import type { TelnetTargetInput } from '@shared/types.js';
@@ -47,6 +48,13 @@ let reader: LogReader | null = null;
 function logReader(): LogReader {
   reader ??= new LogReader(async () => (await config().snapshot()).settings.logDirectory);
   return reader;
+}
+
+let transfers: TransferService | null = null;
+
+function transferService(): TransferService {
+  transfers ??= new TransferService(config(), secrets());
+  return transfers;
 }
 
 function logService(): LogService {
@@ -216,6 +224,65 @@ function registerConfigIpc(): void {
 
   ipcMain.handle(IpcChannel.logsClose, (_event, path: unknown) => {
     logReader().close(requireString(path, 'path'));
+  });
+
+  ipcMain.handle(IpcChannel.exportConfig, async (event) => {
+    const window = BrowserWindow.fromWebContents(event.sender)!;
+    const result = await dialog.showSaveDialog(window, {
+      title: 'Export configuration',
+      defaultPath: configFileName(),
+      filters: [{ name: 'NS3H configuration', extensions: ['json'] }],
+    });
+    if (result.canceled || !result.filePath) return null;
+    await transferService().exportConfig(result.filePath);
+    return result.filePath;
+  });
+
+  ipcMain.handle(IpcChannel.exportBundle, async (event, passphrase: unknown) => {
+    const window = BrowserWindow.fromWebContents(event.sender)!;
+    const result = await dialog.showSaveDialog(window, {
+      title: 'Export configuration and credentials',
+      defaultPath: bundleFileName(),
+      filters: [{ name: 'NS3H backup', extensions: ['ns3h'] }],
+    });
+    if (result.canceled || !result.filePath) return null;
+    await transferService().exportBundle(result.filePath, requireString(passphrase, 'passphrase'));
+    return result.filePath;
+  });
+
+  ipcMain.handle(
+    IpcChannel.importPreview,
+    async (event, path: unknown, passphrase: unknown) => {
+      // Called with no path to open the picker, or with one to retry under a passphrase.
+      if (typeof path === 'string' && path) {
+        return transferService().preview(path, typeof passphrase === 'string' ? passphrase : undefined);
+      }
+
+      const window = BrowserWindow.fromWebContents(event.sender)!;
+      const result = await dialog.showOpenDialog(window, {
+        title: 'Import configuration or backup',
+        properties: ['openFile'],
+        filters: [
+          { name: 'NS3H files', extensions: ['json', 'ns3h'] },
+          { name: 'All files', extensions: ['*'] },
+        ],
+      });
+      if (result.canceled || result.filePaths.length === 0) return null;
+      const chosen = result.filePaths[0];
+      return { path: chosen, preview: await transferService().preview(chosen) };
+    },
+  );
+
+  ipcMain.handle(IpcChannel.importApply, (_event, request: unknown) => {
+    const input = request as { path?: unknown; passphrase?: unknown; resolutions?: unknown };
+    return transferService().apply({
+      path: requireString(input?.path, 'path'),
+      passphrase: typeof input?.passphrase === 'string' ? input.passphrase : undefined,
+      resolutions:
+        typeof input?.resolutions === 'object' && input.resolutions !== null
+          ? (input.resolutions as Record<string, boolean>)
+          : {},
+    });
   });
 
   ipcMain.handle(IpcChannel.configSaveSettings, (_event, patch: unknown) => {

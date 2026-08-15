@@ -1,5 +1,6 @@
 import { useConfig } from '@renderer/stores/config.js';
 import { ThemePicker } from './ThemePicker.js';
+import { BackupSection } from './BackupSection.js';
 import styles from '../Forms/form.module.css';
 import own from './SettingsView.module.css';
 
@@ -95,11 +96,13 @@ export function SettingsView(): JSX.Element {
           </p>
         </div>
 
+        <BackupSection />
+
         <div className={styles.actions}>
           <button
             type="button"
             className={styles.secondary}
-            onClick={() => setView({ kind: 'quick' })}
+            onClick={() => setView({ kind: 'home' })}
           >
             Done
           </button>
