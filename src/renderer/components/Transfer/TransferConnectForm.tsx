@@ -3,7 +3,13 @@ import type { FileConnection, FileProtocol, FileTargetInput } from '@shared/tran
 import { useConfig } from '@renderer/stores/config.js';
 import styles from './TransferConnectForm.module.css';
 
-const DEFAULT_PORT: Record<FileProtocol, number> = { sftp: 22, smb: 445 };
+const DEFAULT_PORT: Record<FileProtocol, number> = { sftp: 22, scp: 22, smb: 445 };
+
+const PROTOCOLS: { key: FileProtocol; name: string; note: string }[] = [
+  { key: 'sftp', name: 'SFTP', note: 'Over SSH — servers and most modern gear' },
+  { key: 'scp', name: 'SCP', note: 'Over SSH — switches and routers with no SFTP' },
+  { key: 'smb', name: 'SMB', note: 'Windows and Samba shares (SMB2)' },
+];
 
 interface Props {
   onConnected: (connection: FileConnection) => void;
@@ -37,8 +43,9 @@ export function TransferConnectForm({ onConnected, onCancel }: Props): JSX.Eleme
 
   const usingCredential = credentialId !== '';
   // A key-based credential cannot authenticate to SMB, which is NTLM.
+  const overSsh = protocol === 'sftp' || protocol === 'scp';
   const usable = credentials.filter(
-    (credential) => protocol === 'sftp' || credential.type === 'password',
+    (credential) => overSsh || credential.type === 'password',
   );
 
   const switchProtocol = (next: FileProtocol) => {
@@ -63,7 +70,7 @@ export function TransferConnectForm({ onConnected, onCancel }: Props): JSX.Eleme
       username: username.trim(),
       ...(usingCredential ? { credentialId } : {}),
       ...(!usingCredential && password ? { password } : {}),
-      ...(!usingCredential && protocol === 'sftp' && keyPath.trim()
+      ...(!usingCredential && overSsh && keyPath.trim()
         ? { keyPath: keyPath.trim() }
         : {}),
       ...(protocol === 'smb' ? { share: share.trim(), domain: domain.trim() } : {}),
@@ -83,31 +90,36 @@ export function TransferConnectForm({ onConnected, onCancel }: Props): JSX.Eleme
       <div className={styles.head}>
         <h2 className={styles.heading}>Connect to a file server</h2>
         <p className={styles.sub}>
-          No CLI session needed. SFTP opens its own SSH connection — same algorithm ladder
-          and host-key check a terminal session gets. SMB attaches a Windows or Samba
-          share. Nothing here is saved.
+          No CLI session needed. SFTP and SCP open their own SSH connection — same
+          algorithm ladder and host-key check a terminal session gets. SMB attaches a
+          Windows or Samba share. Nothing here is saved.
         </p>
       </div>
 
       <div className={styles.protocols} role="radiogroup" aria-label="Protocol">
-        {(['sftp', 'smb'] as const).map((option) => (
+        {PROTOCOLS.map((option) => (
           <button
-            key={option}
+            key={option.key}
             type="button"
             role="radio"
-            aria-checked={protocol === option}
-            className={`${styles.protocol} ${protocol === option ? styles.chosen : ''}`}
-            onClick={() => switchProtocol(option)}
+            aria-checked={protocol === option.key}
+            className={`${styles.protocol} ${protocol === option.key ? styles.chosen : ''}`}
+            onClick={() => switchProtocol(option.key)}
           >
-            <span className={styles.protocolName}>{option === 'sftp' ? 'SFTP' : 'SMB'}</span>
-            <span className={styles.protocolNote}>
-              {option === 'sftp'
-                ? 'Over SSH — switches, routers, servers'
-                : 'Windows and Samba shares (SMB2)'}
-            </span>
+            <span className={styles.protocolName}>{option.name}</span>
+            <span className={styles.protocolNote}>{option.note}</span>
           </button>
         ))}
       </div>
+
+      {protocol === 'scp' && (
+        <p className={styles.note}>
+          SCP moves files but cannot list a directory — there is no listing operation in the
+          protocol. NS3H runs <code>ls</code> to fill the right-hand pane, which works on
+          anything POSIX; a switch has no <code>ls</code>, so the pane falls back to a path
+          you type. Uploads and downloads work either way.
+        </p>
+      )}
 
       <div className={styles.row}>
         <div className={styles.field}>
@@ -214,7 +226,7 @@ export function TransferConnectForm({ onConnected, onCancel }: Props): JSX.Eleme
             </div>
           </div>
 
-          {protocol === 'sftp' && (
+          {overSsh && (
             <div className={styles.field}>
               <label htmlFor="transfer-key">Private key</label>
               <input

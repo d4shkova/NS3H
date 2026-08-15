@@ -62,8 +62,9 @@ export function Sidebar(): JSX.Element {
         )}
         {section === 'transfer' && (
           <p className={styles.placeholder}>
-            SFTP or SMB. An open SSH session can be used as-is; anything else is a
-            connection the pane makes itself, with no CLI session and nothing saved.
+            SFTP, SCP, or SMB. An open SSH session can be used as-is — over either SFTP
+            or SCP, since gear with no SFTP subsystem usually has an SCP server. Anything
+            else is a connection the pane makes itself, with nothing saved.
           </p>
         )}
         {section === 'quick' && (

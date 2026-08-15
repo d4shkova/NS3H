@@ -107,13 +107,44 @@ file, and the message does not pretend otherwise.
 
 **File transfer** is its own entry in the sidebar, and the pane takes one of three sources:
 
-- **An open SSH session.** SFTP opens a channel on the session that is already up, so the
-  transfer costs no second authentication and reuses the crypto negotiated for the shell.
-- **SFTP on its own connection.** No CLI session needed — enter an address and credentials and
-  the pane connects for itself. This is the same `SshConnection` a terminal session uses, opened
-  with `shell: false`, so it gets the identical algorithm ladder, known-hosts check and host-key
-  modal; it simply never asks for a shell channel.
+- **An open SSH session**, over **SFTP or SCP** — a toggle in the toolbar, because which one
+  works is the device's decision and not worth a reconnect to find out. Either rides the session
+  that is already up, so the transfer costs no second authentication and reuses the crypto
+  negotiated for the shell.
+- **SFTP or SCP on its own connection.** No CLI session needed — enter an address and
+  credentials and the pane connects for itself. This is the same `SshConnection` a terminal
+  session uses, opened with `shell: false`, so it gets the identical algorithm ladder,
+  known-hosts check and host-key modal; it simply never asks for a shell channel.
 - **SMB.** A Windows or Samba share, attached by `\\host\share`.
+
+**SCP exists here because SFTP often is not there.** A great deal of network gear runs an SCP
+server and no SFTP subsystem at all — on IOS, `ip scp server enable`, with no equivalent for
+SFTP — so the SFTP channel is refused and SCP is the only way in. When a session's SFTP channel
+is refused, the error carries a **Try SCP instead** button rather than making you work that out.
+
+ssh2 has no SCP, so the protocol is implemented in `src/main/files/scpProtocol.ts`: a control
+line, an acknowledgement byte, the file's bytes, another acknowledgement. It is split from the
+transport so it can be tested, and it is tested twice — against a scripted device in
+`tests/scp.test.ts`, and against OpenSSH's own `scp -f` and `scp -t` in
+`tests/scpInterop.test.ts`, which is the check that counts: the protocol is undocumented by
+design and the only authority on it is the implementation everything else talks to. The interop
+test skips itself where OpenSSH is not installed.
+
+**SCP cannot list a directory** — there is no listing operation in the protocol. NS3H runs `ls`
+to fill the remote pane, which works on anything POSIX and does not work on a switch, because a
+switch has no `ls`. That is reported as what it is, and the pane falls back to a path you type:
+uploads go to the directory in the box, and a full path plus **Fetch** pulls a file down. Which
+is how a firmware image gets moved anyway.
+
+Two more things SCP does differently, both deliberate:
+
+- **Paths are not quoted unless they need it.** A POSIX server runs the path through a shell;
+  `flash:c2960-image.bin` on IOS is handed to something that is not a shell and would take the
+  quotes literally. Paths made only of characters no shell treats specially go untouched, which
+  covers every network-device path; anything else is single-quoted.
+- **A refusal arrives late.** SCP's verdict on an upload comes after the last byte, so
+  `No space left` on a switch with a full flash appears once the whole image has crossed the
+  wire. Nothing can be done about that — it is the protocol — but it is worth expecting.
 
 A standalone target is **not saved**, the way Quick connect is not: it is used for that
 connection and forgotten. A saved credential can be picked instead of typing a password — the

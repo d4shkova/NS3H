@@ -168,6 +168,32 @@ export class SshConnection {
     });
   }
 
+  /**
+   * Opens an exec channel on the connection that is already up — what SCP rides on, and
+   * what the `ls` behind an SCP listing runs in. Same reuse as `openSftp`: no second
+   * authentication, same negotiated crypto.
+   */
+  exec(command: string): Promise<ClientChannel> {
+    return new Promise((resolveChannel, reject) => {
+      if (!this.client) {
+        reject(new Error('The session is not connected.'));
+        return;
+      }
+      this.client.exec(command, (error, channel) => {
+        if (error) {
+          reject(
+            new Error(
+              `This device refused to run a command over SSH: ${error.message}. ` +
+                'Some devices allow a shell but no exec channel, which is what SCP needs.',
+            ),
+          );
+          return;
+        }
+        resolveChannel(channel);
+      });
+    });
+  }
+
   resize(cols: number, rows: number): void {
     this.cols = cols;
     this.rows = rows;

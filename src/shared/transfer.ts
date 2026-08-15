@@ -41,7 +41,10 @@ export interface TransferEvent {
  * CLI session first — a firmware image often has to be pushed to a box nobody wants a
  * shell on, and the file server it comes from has no shell at all.
  */
-export type FileProtocol = 'sftp' | 'smb';
+export type FileProtocol = 'sftp' | 'scp' | 'smb';
+
+/** How a session's own transfer is carried. SCP is the fallback for gear with no SFTP. */
+export type SessionTransferMode = 'sftp' | 'scp';
 
 export interface FileTargetInput {
   protocol: FileProtocol;

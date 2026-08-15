@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto';
 import type { FileConnection, FileTargetInput } from '@shared/transfer.js';
 import type { SessionManager } from '../sessions/manager.js';
 import { SmbTransport, shareUnc } from './smb.js';
-import { StandaloneSftp } from './sftp.js';
+import { StandaloneSftp, connectStandaloneScp } from './standalone.js';
 import type { FileTransport } from './transport.js';
 
 /** Transfer connection ids are told apart from session ids by their prefix. */
@@ -35,7 +35,7 @@ export class TransferHub {
     const transport =
       target.protocol === 'smb'
         ? await SmbTransport.connect(target)
-        : await this.connectSftp(id, target);
+        : await this.connectOverSsh(id, target);
 
     const label =
       target.protocol === 'smb'
@@ -54,23 +54,27 @@ export class TransferHub {
     return info;
   }
 
-  private async connectSftp(id: string, target: FileTargetInput): Promise<FileTransport> {
+  private async connectOverSsh(id: string, target: FileTargetInput): Promise<FileTransport> {
     // The ladder explains itself through notices — "retrying with the legacy algorithm
     // set" and so on. A standalone connection has no terminal to print them in, so they
     // are kept and attached to the failure, where they are the useful part.
     const notices: string[] = [];
 
+    const callbacks = {
+      // The host-key modal is app-level, not per-tab, so it appears for a connection
+      // with no session behind it — and a key trusted here lands in the same file.
+      verifyHostKey: (identity: Parameters<typeof this.prompts.resolveHostKey>[2]) =>
+        this.prompts.resolveHostKey(id, { address: target.host, port: target.port }, identity),
+      onClosed: () => this.forget(id),
+      onNotice: (level: string, text: string) => {
+        if (level !== 'info') notices.push(text);
+      },
+    };
+
     try {
-      return await StandaloneSftp.connect(target, {
-        // The host-key modal is app-level, not per-tab, so it appears for a connection
-        // with no session behind it — and a key trusted here lands in the same file.
-        verifyHostKey: (identity) =>
-          this.prompts.resolveHostKey(id, { address: target.host, port: target.port }, identity),
-        onClosed: () => this.forget(id),
-        onNotice: (level, text) => {
-          if (level !== 'info') notices.push(text);
-        },
-      });
+      return target.protocol === 'scp'
+        ? await connectStandaloneScp(target, callbacks)
+        : await StandaloneSftp.connect(target, callbacks);
     } catch (error) {
       const detail = (error as Error).message;
       throw notices.length > 0

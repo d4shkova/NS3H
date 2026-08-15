@@ -92,22 +92,28 @@ function hubFor(sender: WebContents): TransferHub {
 }
 
 /**
- * The transfer pane addresses a session and a standalone connection the same way; the
- * id says which is which.
+ * The transfer pane addresses a session and a standalone connection the same way; the id
+ * says which is which.
+ *
+ * A session id may carry a mode — `ses_ab12:scp` — because the same session can transfer
+ * either way and the choice belongs to the pane, not to the session. Putting it in the id
+ * keeps the pane's whole notion of a source a single string, and needs no extra IPC to
+ * set, clear, or forget.
  */
 function transportFor(sender: WebContents, id: string): Promise<FileTransport> {
-  return isTransferConnectionId(id)
-    ? Promise.resolve(hubFor(sender).transport(id))
-    : managerFor(sender).transport(id);
+  if (isTransferConnectionId(id)) return Promise.resolve(hubFor(sender).transport(id));
+
+  const [sessionId, mode] = id.split(':');
+  return managerFor(sender).transport(sessionId, mode === 'scp' ? 'scp' : 'sftp');
 }
 
-const FILE_PROTOCOLS = ['sftp', 'smb'];
+const FILE_PROTOCOLS = ['sftp', 'scp', 'smb'];
 
 /** Untrusted, like everything else from the renderer — and it carries a password. */
 async function parseFileTarget(raw: unknown): Promise<FileTargetInput> {
   const input = raw as FileTargetInput;
   if (!FILE_PROTOCOLS.includes(input?.protocol)) {
-    throw new Error('A transfer target must be sftp or smb.');
+    throw new Error('A transfer target must be sftp, scp, or smb.');
   }
   requireString(input.host, 'host');
   if (typeof input.port !== 'number' || input.port < 1 || input.port > 65535) {

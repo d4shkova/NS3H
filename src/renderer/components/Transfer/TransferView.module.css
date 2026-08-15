@@ -262,3 +262,104 @@
   line-height: 1.55;
   font-size: 12.5px;
 }
+
+/* SFTP / SCP toggle for a session, which can carry either. */
+.modes {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  flex: none;
+}
+
+.mode {
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  color: var(--text-tertiary);
+  padding: 4px 10px;
+}
+
+.mode:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.modeOn {
+  background: var(--accent);
+  color: #fff;
+}
+
+.errorAction {
+  margin-left: 12px;
+  color: var(--text-primary);
+  border: 1px solid var(--status-error);
+  border-radius: var(--radius-sm);
+  padding: 2px 9px;
+  font-size: 11.5px;
+}
+
+.errorAction:hover {
+  background: var(--status-error);
+  color: #fff;
+}
+
+/* Shown instead of a listing when the remote side cannot be enumerated. */
+.manual {
+  border-bottom: 1px solid var(--border);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.manualNote {
+  color: var(--text-tertiary);
+  font-size: 11.5px;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.manualNote code {
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+}
+
+.manualRow {
+  display: flex;
+  gap: 8px;
+}
+
+.manualRow input {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  padding: 5px 9px;
+}
+
+.manualRow button,
+.manualFetch {
+  flex: none;
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 5px 12px;
+  font-size: 12px;
+}
+
+.manualRow button:hover,
+.manualFetch:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  border-color: var(--border-focus);
+}
+
+.manualFetch {
+  align-self: flex-start;
+  font-family: var(--font-mono);
+}
+
+.manualFetch:disabled {
+  color: var(--text-tertiary);
+  cursor: not-allowed;
+}

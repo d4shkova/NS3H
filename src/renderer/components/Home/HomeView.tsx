@@ -94,7 +94,7 @@ export function HomeView(): JSX.Element {
       icon: '⇅',
       title: 'File transfer',
       description: 'Move files to and from a device or a file server.',
-      detail: () => 'SFTP or SMB — an open session, or its own connection',
+      detail: () => 'SFTP, SCP, or SMB — an open session, or its own connection',
       onOpen: () => setView({ kind: 'transfer' }),
     },
   ];

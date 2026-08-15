@@ -24,7 +24,7 @@
 
 .protocols {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, 1fr);
   gap: 10px;
   margin-bottom: 20px;
 }
@@ -137,5 +137,22 @@
 
 .secondary:hover {
   background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+/* Protocol-specific caveat, shown under the picker. */
+.note {
+  color: var(--text-secondary);
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 9px 11px;
+  margin: -8px 0 18px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.note code {
+  font-family: var(--font-mono);
   color: var(--text-primary);
 }

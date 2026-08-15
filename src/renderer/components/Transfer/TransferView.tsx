@@ -23,6 +23,17 @@ interface Source {
   label: string;
   /** Standalone connections can be disconnected here; a session's is closed with it. */
   standalone: boolean;
+  /** Sessions carry their mode in the id — `ses_ab12` or `ses_ab12:scp`. */
+  sessionId?: string;
+}
+
+/**
+ * A remote side that cannot be listed is still usable: SCP has no listing operation, and
+ * the `ls` NS3H falls back to does not exist on a switch. The pane then works from a path
+ * the user types, which is how anyone moves a firmware image anyway.
+ */
+function isNotBrowsable(message: string): boolean {
+  return /cannot list|not a directory listing/i.test(message);
 }
 
 /**
@@ -48,32 +59,45 @@ export function TransferView(): JSX.Element {
   const [remotePath, setRemotePath] = useState('');
   const [remote, setRemote] = useState<RemoteEntry[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [browsable, setBrowsable] = useState(true);
+  /** Where an unbrowsable remote side sends and fetches — typed, not clicked. */
+  const [manualPath, setManualPath] = useState('');
   const [busy, setBusy] = useState(false);
   const [transfers, setTransfers] = useState<TransferEvent[]>([]);
+
+  // A session's mode lives in the id, so switching SFTP↔SCP is just picking another
+  // source — no extra state, and the pane reloads exactly as it does for any other.
+  const [sessionModes, setSessionModes] = useState<Record<string, 'sftp' | 'scp'>>({});
 
   const sources: Source[] = useMemo(
     () => [
       ...tabs
         .filter((tab) => tab.protocol === 'ssh' && tab.status === 'connected')
-        .map((tab) => ({
-          id: tab.id,
-          label: `${tab.name} (${tab.address}) — open session`,
-          standalone: false,
-        })),
+        .map((tab) => {
+          const mode = sessionModes[tab.id] ?? 'sftp';
+          return {
+            id: mode === 'scp' ? `${tab.id}:scp` : tab.id,
+            label: `${tab.name} (${tab.address}) — open session`,
+            standalone: false,
+            sessionId: tab.id,
+          };
+        }),
       ...connections.map((connection) => ({
         id: connection.id,
         label: `${connection.label} — ${connection.protocol.toUpperCase()}`,
         standalone: true,
       })),
     ],
-    [tabs, connections],
+    [tabs, connections, sessionModes],
   );
 
   // Pick something sensible on arrival, and never keep pointing at a source that has
   // gone — a session that closed, or a connection that was disconnected.
   useEffect(() => {
     if (sources.some((source) => source.id === sourceId)) return;
-    const preferred = sources.find((source) => source.id === activeId) ?? sources[0];
+    const preferred =
+      sources.find((source) => source.sessionId === activeId || source.id === activeId) ??
+      sources[0];
     setSourceId(preferred?.id ?? '');
     if (!preferred) {
       setRemote([]);
@@ -97,9 +121,20 @@ export function TransferView(): JSX.Element {
     try {
       setRemote(await window.ns3h.transfer.remoteList(id, path));
       setRemotePath(path);
+      setBrowsable(true);
       setError(null);
     } catch (cause) {
-      setError((cause as Error).message);
+      const message = (cause as Error).message;
+      if (isNotBrowsable(message)) {
+        // Not a failure to report as one: the pane switches to typed paths, keeps the
+        // path the user asked for, and both directions still work.
+        setBrowsable(false);
+        setRemote([]);
+        setRemotePath(path);
+        setError(null);
+        return;
+      }
+      setError(message);
     }
   }, []);
 
@@ -222,6 +257,32 @@ export function TransferView(): JSX.Element {
             </option>
           ))}
         </select>
+
+        {/* A session can carry either, and which one works is the device's decision —
+            so the choice is one click away rather than a reconnect. */}
+        {source?.sessionId && (
+          <span className={styles.modes} role="radiogroup" aria-label="Transfer protocol">
+            {(['sftp', 'scp'] as const).map((mode) => {
+              const chosen = (sessionModes[source.sessionId!] ?? 'sftp') === mode;
+              return (
+                <button
+                  key={mode}
+                  type="button"
+                  role="radio"
+                  aria-checked={chosen}
+                  className={`${styles.mode} ${chosen ? styles.modeOn : ''}`}
+                  onClick={() => {
+                    setSessionModes((current) => ({ ...current, [source.sessionId!]: mode }));
+                    setSourceId(mode === 'scp' ? `${source.sessionId}:scp` : source.sessionId!);
+                  }}
+                >
+                  {mode.toUpperCase()}
+                </button>
+              );
+            })}
+          </span>
+        )}
+
         <button type="button" className={styles.back} onClick={() => setConnecting(true)}>
           New connection
         </button>
@@ -240,6 +301,21 @@ export function TransferView(): JSX.Element {
       {error && (
         <p className={styles.error} onClick={() => setError(null)} role="alert">
           {error}
+          {/* The failure the original SFTP error was hiding: the device has no SFTP
+              subsystem, but very likely does have an SCP server. */}
+          {source?.sessionId && /SFTP channel/i.test(error) && (
+            <button
+              type="button"
+              className={styles.errorAction}
+              onClick={(event) => {
+                event.stopPropagation();
+                setSessionModes((current) => ({ ...current, [source.sessionId!]: 'scp' }));
+                setSourceId(`${source.sessionId}:scp`);
+              }}
+            >
+              Try SCP instead
+            </button>
+          )}
         </p>
       )}
 
@@ -291,13 +367,61 @@ export function TransferView(): JSX.Element {
             <span className={styles.paneTitle}>{source?.standalone ? 'Remote' : 'Device'}</span>
             <button
               type="button"
-              disabled={!remotePath || remotePath === '/'}
+              disabled={!browsable || !remotePath || remotePath === '/'}
               onClick={() => void loadRemote(sourceId, remotePath.replace(/\/[^/]+\/?$/, '') || '/')}
             >
               Up
             </button>
           </header>
           <div className={styles.path}>{remotePath || '…'}</div>
+
+          {!browsable && (
+            <div className={styles.manual}>
+              <p className={styles.manualNote}>
+                This device cannot list a directory over SCP — there is no listing operation
+                in the protocol, and it has no <code>ls</code>. Type where files should go,
+                or the full path of one to fetch.
+              </p>
+              <form
+                className={styles.manualRow}
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  const typed = manualPath.trim();
+                  if (typed) setRemotePath(typed);
+                }}
+              >
+                <input
+                  value={manualPath}
+                  placeholder="flash:  ·  /var/tmp  ·  bootflash:image.bin"
+                  onChange={(event) => setManualPath(event.target.value)}
+                />
+                <button type="submit">Use</button>
+              </form>
+              <p className={styles.manualNote}>
+                Uploads go to <code>{remotePath || '—'}</code>. To fetch a file, set that box
+                to its full path and press Fetch.
+              </p>
+              <button
+                type="button"
+                className={styles.manualFetch}
+                disabled={busy || !remotePath}
+                onClick={() =>
+                  void download({
+                    name: remotePath.split(/[/:]/).pop() ?? remotePath,
+                    path: remotePath,
+                    directory: false,
+                    symlink: false,
+                    size: 0,
+                    modified: '',
+                    permissions: '',
+                  })
+                }
+              >
+                Fetch {remotePath || 'a file'}
+              </button>
+            </div>
+          )}
+
           <div className={styles.list}>
             {remote.map((entry) => (
               <div

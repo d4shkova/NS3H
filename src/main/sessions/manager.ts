@@ -17,6 +17,8 @@ import { KnownHostsStore, verifyHostKey } from '../store/knownHosts.js';
 import type { LogService, SessionLogRequest } from '../logging/index.js';
 import { SftpSession } from '../ssh/sftp.js';
 import type { FileTransport } from '../files/transport.js';
+import { ScpTransport } from '../files/scp.js';
+import type { SessionTransferMode } from '@shared/transfer.js';
 import type { SessionLogWriter } from '../logging/writer.js';
 
 export function newId(prefix: string): string {
@@ -285,11 +287,17 @@ export class SessionManager {
   }
 
   /**
-   * The session's SFTP channel behind the same interface a standalone connection
+   * The session's own transfer channel behind the same interface a standalone connection
    * implements, so the transfer pane and its IPC handlers do not care which they have.
-   * `close` is a no-op: the channel belongs to the session and goes when it does.
+   *
+   * `scp` is the way in for gear that runs an SCP server and no SFTP subsystem — very
+   * common on switches and routers, where the SFTP channel is simply refused. Both modes
+   * ride the session that is already authenticated; `close` is a no-op either way,
+   * because the channel belongs to the session and goes when it does.
    */
-  async transport(sessionId: string): Promise<FileTransport> {
+  async transport(sessionId: string, mode: SessionTransferMode = 'sftp'): Promise<FileTransport> {
+    if (mode === 'scp') return this.scpFor(sessionId);
+
     const sftp = await this.sftpFor(sessionId);
     return {
       home: () => sftp.realpath('.'),
@@ -300,6 +308,18 @@ export class SessionManager {
         sftp.upload(localPath, remoteDirectory, onProgress),
       close: () => {},
     };
+  }
+
+  /** SCP over the open session. Each transfer is its own exec channel, so there is
+   * nothing to cache and nothing to leak. */
+  private scpFor(sessionId: string): FileTransport {
+    const session = this.sessions.get(sessionId);
+    if (!session) throw new Error('That session is no longer open.');
+    if (session.info.protocol !== 'ssh') {
+      throw new Error('File transfer needs an SSH session — telnet and serial cannot carry it.');
+    }
+    const connection = session.connection as SshConnection;
+    return new ScpTransport((command) => connection.exec(command));
   }
 
   /** Serial only — the toolbar button is hidden for other protocols. */
