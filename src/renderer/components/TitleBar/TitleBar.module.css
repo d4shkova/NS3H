@@ -1,0 +1,63 @@
+.bar {
+  height: var(--titlebar-height);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+  -webkit-app-region: drag;
+  user-select: none;
+}
+
+.mac {
+  padding-left: 78px;
+}
+
+.title {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--text-secondary);
+}
+
+/* Sits left of the three window controls (3 x 46px) on Windows and Linux. */
+.left {
+  position: absolute;
+  right: 138px;
+  top: 0;
+  height: 100%;
+  display: flex;
+  -webkit-app-region: no-drag;
+}
+
+.macLeft {
+  right: 8px;
+}
+
+.controls {
+  position: absolute;
+  right: 0;
+  top: 0;
+  height: 100%;
+  display: flex;
+  -webkit-app-region: no-drag;
+}
+
+.control {
+  width: 46px;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  color: var(--text-secondary);
+}
+
+.control:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.close:hover {
+  background: var(--accent);
+  color: #fff;
+}

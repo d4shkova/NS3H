@@ -1,0 +1,171 @@
+.wrap {
+  height: 100%;
+  overflow-y: auto;
+  display: grid;
+  place-items: start center;
+  padding: 44px 24px;
+}
+
+.inner {
+  width: 100%;
+  max-width: 960px;
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+.heading {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0 0 4px;
+}
+
+.sub {
+  color: var(--text-secondary);
+  line-height: 1.55;
+  margin: 0;
+  max-width: 68ch;
+}
+
+.sub code {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-primary);
+}
+
+.primary {
+  flex: none;
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+  border-radius: var(--radius-sm);
+  padding: 9px 16px;
+}
+
+.primary:hover {
+  background: var(--accent-hover);
+}
+
+.filter {
+  margin-bottom: 16px;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+
+.table th {
+  text-align: left;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  padding: 0 10px 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.table td {
+  padding: 9px 10px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-secondary);
+  vertical-align: middle;
+}
+
+.table tbody tr:hover {
+  background: var(--bg-panel);
+}
+
+.child td {
+  color: var(--text-tertiary);
+  padding-left: 26px;
+  background: var(--bg-panel);
+}
+
+.name {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+}
+
+.chevron {
+  color: var(--text-tertiary);
+  margin-right: 7px;
+}
+
+.badge {
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 1px 8px;
+}
+
+.on {
+  color: var(--status-ok);
+}
+
+.off {
+  color: var(--text-tertiary);
+}
+
+.actions {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.actions button {
+  font-size: 11.5px;
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 3px 9px;
+}
+
+.actions button:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  border-color: var(--border-focus);
+}
+
+.danger:hover {
+  border-color: var(--accent) !important;
+  color: var(--accent) !important;
+  background: var(--accent-muted) !important;
+}
+
+.empty {
+  color: var(--text-tertiary);
+  line-height: 1.6;
+  padding: 12px 0;
+}
+
+.warning {
+  color: var(--status-warn);
+  border: 1px solid var(--status-warn);
+  border-radius: var(--radius-sm);
+  padding: 9px 11px;
+  margin-bottom: 16px;
+  line-height: 1.5;
+  font-size: 12px;
+}
+
+.linkButton {
+  color: var(--accent);
+  text-decoration: underline;
+  padding: 0;
+}

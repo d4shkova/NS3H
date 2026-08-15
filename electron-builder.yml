@@ -1,0 +1,54 @@
+# Runs `npm run build` before packaging, so `npx electron-builder` alone is enough.
+beforePack: ./scripts/before-pack.cjs
+
+# §9 — unsigned builds for all three platforms. Signing is out of scope for v1; the
+# README says what each OS will do about that and how to get past it.
+appId: com.ns3h.app
+productName: NS3H
+copyright: NS3H
+
+directories:
+  output: release
+  buildResources: build
+
+files:
+  - out/**/*
+  - package.json
+
+# serialport ships Node-API prebuilds, so nothing needs rebuilding per platform —
+# but the binding must not be packed into the asar or the loader cannot find it.
+asarUnpack:
+  - node_modules/@serialport/**
+  - node_modules/@node-rs/**
+
+npmRebuild: false
+
+linux:
+  target:
+    - AppImage
+    - deb
+  category: Network
+  desktop:
+    entry:
+      Terminal: 'false'
+  synopsis: Terminal client for network engineers
+  syncDesktopName: true
+
+win:
+  target:
+    - nsis
+  # No certificate: SmartScreen will warn, and the README explains why.
+  signAndEditExecutable: true
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  perMachine: false
+
+mac:
+  target:
+    - dmg
+  category: public.app-category.developer-tools
+  # Unsigned: Gatekeeper blocks it until the user allows it explicitly.
+  identity: null
+  hardenedRuntime: false

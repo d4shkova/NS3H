@@ -1,0 +1,42 @@
+/*
+ * dockview themed onto the §6.1 tokens. Its own variables are the supported
+ * customisation surface, so the app's palette is mapped onto them rather than
+ * overriding its internals.
+ */
+@import 'dockview/dist/styles/dockview.css';
+
+.dockview-theme-abyss {
+  --dv-background-color: var(--bg-base);
+  --dv-paneview-active-outline-color: var(--accent);
+  --dv-tabs-and-actions-container-background-color: var(--bg-panel);
+  --dv-tabs-and-actions-container-font-size: 12.5px;
+  --dv-tabs-and-actions-container-height: 34px;
+
+  --dv-activegroup-visiblepanel-tab-background-color: var(--bg-base);
+  --dv-activegroup-hiddenpanel-tab-background-color: var(--bg-panel);
+  --dv-inactivegroup-visiblepanel-tab-background-color: var(--bg-base);
+  --dv-inactivegroup-hiddenpanel-tab-background-color: var(--bg-panel);
+
+  --dv-activegroup-visiblepanel-tab-color: var(--text-primary);
+  --dv-activegroup-hiddenpanel-tab-color: var(--text-secondary);
+  --dv-inactivegroup-visiblepanel-tab-color: var(--text-secondary);
+  --dv-inactivegroup-hiddenpanel-tab-color: var(--text-tertiary);
+
+  --dv-separator-border: var(--border);
+  --dv-paneview-header-border-color: var(--border);
+  --dv-group-view-background-color: var(--bg-base);
+
+  --dv-tab-divider-color: var(--border);
+  --dv-active-sash-color: var(--accent);
+  --dv-drag-over-background-color: var(--accent-muted);
+  --dv-drag-over-border-color: var(--accent);
+
+  --dv-icon-hover-background-color: var(--bg-hover);
+  --dv-floating-box-shadow: 0 14px 36px rgb(0 0 0 / 55%);
+}
+
+/* The drop zone that appears while dragging a tab to an edge. */
+.dockview-theme-abyss .dv-drop-target-dropzone {
+  background-color: var(--accent-muted);
+  border: 1px solid var(--accent);
+}
