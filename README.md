@@ -197,6 +197,8 @@ npm test           # vitest unit tests
 
 ## Building installers
 
+Step-by-step per platform, including the platform-specific traps: [`BUILDING.md`](./BUILDING.md).
+
 ```sh
 npm run dist          # for the platform you are on
 npm run dist:linux    # AppImage + .deb
