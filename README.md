@@ -146,6 +146,15 @@ Two more things SCP does differently, both deliberate:
   `No space left` on a switch with a full flash appears once the whole image has crossed the
   wire. Nothing can be done about that — it is the protocol — but it is worth expecting.
 
+**Files can be dragged in from the desktop.** Dropping them on the remote pane uploads them
+to whatever directory it is showing — including the typed path an unbrowsable SCP device falls
+back to. Several at once go one after another, and a folder among them fails on its own without
+taking the rest down with it. Electron 32 removed `File.path`, so the path behind each drop is
+resolved with `webUtils` in the preload, which is the only place a sandboxed renderer can reach
+it; a drop carrying no file from disk — dragged text, a link, an image from a web page — says so
+rather than failing quietly. Dropping anywhere else in the window is cancelled outright, because
+the default there is for Chromium to navigate to the file and replace the running app with it.
+
 A standalone target is **not saved**, the way Quick connect is not: it is used for that
 connection and forgotten. A saved credential can be picked instead of typing a password — the
 secret is resolved in main, so the renderer neither sends nor receives one.

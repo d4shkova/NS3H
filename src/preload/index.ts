@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron';
+import { contextBridge, ipcRenderer, webUtils, type IpcRendererEvent } from 'electron';
 import { IpcChannel } from '@shared/ipc.js';
 import type { Ns3hApi } from '@shared/api.js';
 import type { SerialConfig } from '@shared/config.js';
@@ -104,6 +104,23 @@ const api: Ns3hApi = {
     upload: (sessionId: string, localPath: string, remoteDirectory: string) =>
       ipcRenderer.invoke(IpcChannel.transferUpload, sessionId, localPath, remoteDirectory),
     chooseDirectory: () => ipcRenderer.invoke(IpcChannel.transferChooseDirectory),
+    /**
+     * The filesystem path behind a dropped `File`.
+     *
+     * Electron 32 removed `File.path`, and a sandboxed renderer cannot reach `webUtils`
+     * itself — so the lookup happens here, in the preload, which is the only place it is
+     * available. Nothing is read: this hands back a path, and the upload that follows
+     * goes through the same main-process code any other upload does.
+     */
+    pathForFile: (file: File) => {
+      try {
+        return webUtils.getPathForFile(file);
+      } catch {
+        // A drop that is not a real file — text, a URL, a browser-generated blob — has
+        // no path on disk, and the pane says so rather than failing obscurely.
+        return '';
+      }
+    },
     connect: (target) => ipcRenderer.invoke(IpcChannel.transferConnect, target),
     connections: () => ipcRenderer.invoke(IpcChannel.transferConnections),
     disconnect: (connectionId: string) =>

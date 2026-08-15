@@ -60,9 +60,19 @@ export function TransferView(): JSX.Element {
   const [remote, setRemote] = useState<RemoteEntry[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [browsable, setBrowsable] = useState(true);
+  /** A file is being dragged over the remote pane. */
+  const [dropping, setDropping] = useState(false);
   /** Where an unbrowsable remote side sends and fetches — typed, not clicked. */
   const [manualPath, setManualPath] = useState('');
-  const [busy, setBusy] = useState(false);
+  /**
+   * How many transfers are in flight, not whether one is. Dropping a second batch while
+   * the first is still going is legitimate, and a plain boolean would let whichever
+   * finished first re-enable the arrows under the one still running.
+   */
+  const [active, setActive] = useState(0);
+  const busy = active > 0;
+  const started = () => setActive((count) => count + 1);
+  const finished = () => setActive((count) => count - 1);
   const [transfers, setTransfers] = useState<TransferEvent[]>([]);
 
   // A session's mode lives in the id, so switching SFTP↔SCP is just picking another
@@ -177,27 +187,66 @@ export function TransferView(): JSX.Element {
   }, [loadLocal, loadRemote, local.path, remotePath, sourceId]);
 
   const download = async (entry: RemoteEntry) => {
-    setBusy(true);
+    started();
     setError(null);
     try {
       await window.ns3h.transfer.download(sourceId, entry.path, local.path);
     } catch (cause) {
       setError((cause as Error).message);
     } finally {
-      setBusy(false);
+      finished();
     }
   };
 
-  const upload = async (entry: LocalEntry) => {
-    setBusy(true);
+  /**
+   * Sends files to whatever directory the remote pane is showing. One at a time: the
+   * progress strip holds a handful of rows, and a device being handed four firmware
+   * images at once is not faster for it.
+   */
+  const uploadPaths = async (paths: string[]) => {
+    if (paths.length === 0 || !sourceId || !remotePath) return;
+    started();
     setError(null);
-    try {
-      await window.ns3h.transfer.upload(sourceId, entry.path, remotePath);
-    } catch (cause) {
-      setError((cause as Error).message);
-    } finally {
-      setBusy(false);
+    const failures: string[] = [];
+
+    for (const path of paths) {
+      try {
+        await window.ns3h.transfer.upload(sourceId, path, remotePath);
+      } catch (cause) {
+        // One file failing does not cancel the rest — a folder among the dropped files
+        // is the usual reason, and the others are still worth sending.
+        failures.push(`${path.split(/[\\/]/).pop()}: ${(cause as Error).message}`);
+      }
     }
+
+    if (failures.length > 0) setError(failures.join('\n'));
+    finished();
+  };
+
+  const upload = (entry: LocalEntry) => uploadPaths([entry.path]);
+
+  /**
+   * A drop from outside the app. Electron 32 removed `File.path`, so the preload resolves
+   * each one through `webUtils`; anything without a path on disk — dragged text, a URL,
+   * an image from a web page — has nothing to send and says so.
+   */
+  const dropFiles = async (event: React.DragEvent) => {
+    event.preventDefault();
+    setDropping(false);
+
+    const dropped = [...event.dataTransfer.files];
+    if (dropped.length === 0) return;
+
+    const paths = dropped.map((file) => window.ns3h.transfer.pathForFile(file)).filter(Boolean);
+    if (paths.length === 0) {
+      setError(
+        'That drop carried no file from disk — dragged text, a link, or an image from a ' +
+          'web page has nothing to upload. Drag a file from a file manager instead.',
+      );
+      return;
+    }
+
+    await uploadPaths(paths);
   };
 
   /** Back to the sessions if there are any, and to the home screen if there are not. */
@@ -371,7 +420,25 @@ export function TransferView(): JSX.Element {
           </div>
         </section>
 
-        <section className={styles.pane}>
+        {/* Dropping a file from the desktop uploads it to whatever directory is open
+            here. `dragOver` must cancel the default for a drop to fire at all, and the
+            counter guards against the dragleave that fires when the pointer crosses from
+            the pane onto a row inside it. */}
+        <section
+          className={`${styles.pane} ${dropping ? styles.dropping : ''}`}
+          onDragOver={(event) => {
+            if (!remotePath) return;
+            event.preventDefault();
+            event.dataTransfer.dropEffect = 'copy';
+            if (!dropping) setDropping(true);
+          }}
+          onDragLeave={(event) => {
+            if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+              setDropping(false);
+            }
+          }}
+          onDrop={(event) => void dropFiles(event)}
+        >
           <header className={styles.paneHead}>
             <span className={styles.paneTitle}>{source?.standalone ? 'Remote' : 'Device'}</span>
             <button
@@ -383,6 +450,12 @@ export function TransferView(): JSX.Element {
             </button>
           </header>
           <div className={styles.path}>{remotePath || '…'}</div>
+
+          {dropping && (
+            <div className={styles.dropHint} aria-hidden="true">
+              Drop to upload to <code>{remotePath}</code>
+            </div>
+          )}
 
           {!browsable && (
             <div className={styles.manual}>

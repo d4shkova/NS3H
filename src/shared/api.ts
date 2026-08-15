@@ -98,6 +98,12 @@ export interface Ns3hApi {
     chooseDirectory(): Promise<string | null>;
     onProgress(handler: (event: TransferEvent) => void): Unsubscribe;
 
+    /**
+     * The filesystem path behind a `File` from a drop. Empty when the drop carried no
+     * real file — `File.path` is gone as of Electron 32, and only the preload can ask.
+     */
+    pathForFile(file: File): string;
+
     /** SFTP or SMB without a terminal session behind it (§ phase 12). */
     connect(target: FileTargetInput): Promise<FileConnection>;
     connections(): Promise<FileConnection[]>;

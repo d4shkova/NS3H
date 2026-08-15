@@ -115,6 +115,31 @@ export function App(): JSX.Element {
     applyTheme(themeId);
   }, [themeId]);
 
+  /**
+   * A file dropped anywhere that is not a drop target makes Chromium navigate to it —
+   * the window is replaced by the file's contents, with no way back and every session
+   * still running behind it. The transfer pane cancels these events for its own drops;
+   * this catches everything else.
+   */
+  useEffect(() => {
+    const swallow = (event: DragEvent) => {
+      if (!event.dataTransfer?.types.includes('Files')) return;
+      // Both events have to be cancelled: without `dragover`, the drop is never
+      // dispatched to the page at all and the navigation just happens.
+      event.preventDefault();
+      // Captured, so this runs before the drop targets — which then set `copy` over
+      // themselves, leaving the rest of the window showing "no drop" rather than
+      // promising something it will not do.
+      if (event.type === 'dragover') event.dataTransfer.dropEffect = 'none';
+    };
+    window.addEventListener('dragover', swallow, { capture: true });
+    window.addEventListener('drop', swallow, { capture: true });
+    return () => {
+      window.removeEventListener('dragover', swallow, { capture: true });
+      window.removeEventListener('drop', swallow, { capture: true });
+    };
+  }, []);
+
   const onDragMove = useCallback((event: MouseEvent) => {
     if (!dragging.current) return;
     const percent = (event.clientX / window.innerWidth) * 100;
