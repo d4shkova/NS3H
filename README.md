@@ -127,14 +127,22 @@ The proposal in `src/main/ssh/algorithms.ts` is the spec's list verbatim, offere
 preference order with no user-facing settings. It is intersected at connect time with what `ssh2`
 actually implements, because `ssh2` throws on an algorithm name it does not know.
 
-`ssh2` 1.17 does **not** implement four ciphers the spec asks for: `blowfish-cbc`, `cast128-cbc`,
-`arcfour256`, `arcfour128`, and `arcfour`. They stay in the list — if `ssh2` gains them, they are
-offered automatically — and NS3H prints one line in the session pane naming what it could not
-offer, rather than dropping them silently. Everything else in the spec, including
-`diffie-hellman-group1-sha1`, `ssh-dss`, `3des-cbc`, and `hmac-md5`, is available.
+`ssh2` builds its supported-cipher list from whatever the runtime's crypto actually provides, so
+the answer differs between Electron and plain Node — and the app is what matters:
 
-Gear that only speaks arcfour or blowfish will need a different SSH transport — worth knowing
-before phase 1 is signed off against real hardware.
+| Cipher | Electron (the app) | Node (scripts, tests) |
+|---|---|---|
+| `blowfish-cbc`, `arcfour256`, `arcfour128`, `arcfour` | available | missing |
+| `chacha20-poly1305@openssh.com` | missing | available |
+| `cast128-cbc` | missing | missing |
+
+So the legacy ciphers the spec asks for are all offered by the running app; BoringSSL provides
+blowfish and RC4. What it lacks is chacha20, which costs nothing — a modern server negotiates
+AES-GCM instead. `cast128-cbc` is the only entry in the spec's list that is genuinely unavailable,
+and gear that speaks nothing but CAST is the one case that would need a different transport.
+
+Whatever cannot be offered is named in one grey line in the session pane, rather than dropped
+silently, so the proposal is always inspectable at connect time.
 
 ## Testing against a legacy server locally
 
