@@ -49,7 +49,8 @@ export function Sidebar(): JSX.Element {
 
         {section === 'home' && (
           <p className={styles.placeholder}>
-            Everything the app does, one click away. Sessions keep running while you are here.
+            Everything the app does, one click away. With sessions open this returns to
+            them; they keep running whatever else is on screen.
           </p>
         )}
         {section === 'hosts' && <HostTree />}

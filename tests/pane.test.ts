@@ -14,10 +14,14 @@ describe('what the main pane shows', () => {
     expect(paneLayout({ kind: 'sessions' }, 0)).toEqual({ showDock: false, showHome: true });
   });
 
-  it('shows the home screen when asked, sessions or not', () => {
-    expect(paneLayout({ kind: 'home' }, 0).showHome).toBe(true);
-    expect(paneLayout({ kind: 'home' }, 3).showHome).toBe(true);
-    expect(paneLayout({ kind: 'home' }, 3).showDock).toBe(false);
+  it('lands Home on the open sessions rather than on the card grid', () => {
+    // Home is where the user goes back to their work: with connections open, that is the
+    // dock and its tabs, not a menu they have to click through.
+    expect(paneLayout({ kind: 'home' }, 3)).toEqual({ showDock: true, showHome: false });
+  });
+
+  it('shows the card grid when there is no work to go back to', () => {
+    expect(paneLayout({ kind: 'home' }, 0)).toEqual({ showDock: false, showHome: true });
   });
 
   it('leaves every other view to render itself', () => {

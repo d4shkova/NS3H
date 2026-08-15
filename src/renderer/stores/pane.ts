@@ -10,20 +10,24 @@ export interface PaneLayout {
 /**
  * What the main pane shows, given the view and how many sessions are open.
  *
- * The rule that is not obvious: **the dock is never shown empty.** Asking for the session
- * view with nothing open renders a dockview with no panels, which is a blank window — not
- * an empty state, just nothing. It is reachable from more than one direction (the file
- * transfer pane's back button, with a standalone transfer connection and no terminal
- * behind it, is the one that found it), so the fallback lives here rather than at each
- * call site: no sessions means the home screen, which is also where closing the last tab
- * already lands.
+ * Two rules, and both come down to the same idea — the pane shows the work, and the card
+ * grid is what stands in when there is none:
+ *
+ * - **Home means the sessions, when there are sessions.** Open connections are the thing
+ *   the user came back for, so Home lands on the dock and its tabs rather than on a menu
+ *   they have to click through. Every card's destination is in the sidebar anyway.
+ * - **The dock is never shown empty.** Asking for it with nothing open renders a dockview
+ *   with no panels, which is a blank window — not an empty state, just nothing.
+ *
+ * File transfers are deliberately not part of this: they have their own tabs on their own
+ * screen, so a transfer never competes with a terminal for the same pane.
  */
 export function paneLayout(view: MainView, sessionCount: number): PaneLayout {
-  const dockAsked = view.kind === 'sessions';
-  const dockUsable = dockAsked && sessionCount > 0;
+  const wantsSessions = view.kind === 'sessions' || view.kind === 'home';
+  const dockUsable = wantsSessions && sessionCount > 0;
 
   return {
     showDock: dockUsable,
-    showHome: view.kind === 'home' || (dockAsked && !dockUsable),
+    showHome: wantsSessions && !dockUsable,
   };
 }

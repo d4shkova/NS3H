@@ -11,9 +11,17 @@ const PROTOCOLS: { key: FileProtocol; name: string; note: string }[] = [
   { key: 'smb', name: 'SMB', note: 'Windows and Samba shares (SMB2)' },
 ];
 
+export interface OpenSession {
+  id: string;
+  label: string;
+}
+
 interface Props {
   onConnected: (connection: FileConnection) => void;
   onCancel: (() => void) | null;
+  /** SSH sessions that are up and do not already have a transfer tab. */
+  openSessions?: OpenSession[];
+  onUseSession?: (session: OpenSession) => void;
 }
 
 /**
@@ -24,7 +32,12 @@ interface Props {
  * typed — the secret is resolved in main, so the field below is the only place a typed
  * one exists, and the renderer never receives a stored one.
  */
-export function TransferConnectForm({ onConnected, onCancel }: Props): JSX.Element {
+export function TransferConnectForm({
+  onConnected,
+  onCancel,
+  openSessions = [],
+  onUseSession,
+}: Props): JSX.Element {
   const credentials = useConfig((state) => state.snapshot.credentials.credentials);
 
   const [protocol, setProtocol] = useState<FileProtocol>('sftp');
@@ -95,6 +108,26 @@ export function TransferConnectForm({ onConnected, onCancel }: Props): JSX.Eleme
           Windows or Samba share. Nothing here is saved.
         </p>
       </div>
+
+      {/* Transferring over a session that is already authenticated costs no second
+          login, so it is offered before the form rather than buried behind it. */}
+      {openSessions.length > 0 && onUseSession && (
+        <div className={styles.sessions}>
+          <p className={styles.sessionsTitle}>Use a session that is already open</p>
+          {openSessions.map((session) => (
+            <button
+              key={session.id}
+              type="button"
+              className={styles.session}
+              onClick={() => onUseSession(session)}
+            >
+              {session.label}
+              <span className={styles.sessionNote}>no second login</span>
+            </button>
+          ))}
+          <p className={styles.sessionsOr}>or connect to something new</p>
+        </div>
+      )}
 
       <div className={styles.protocols} role="radiogroup" aria-label="Protocol">
         {PROTOCOLS.map((option) => (

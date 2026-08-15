@@ -385,3 +385,83 @@
 .dropHint code {
   font-family: var(--font-mono);
 }
+
+/* One tab per open transfer, in the toolbar. */
+.tabs {
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+}
+
+.tab {
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-base);
+  max-width: 260px;
+  flex: none;
+}
+
+.tabOn {
+  border-color: var(--accent);
+  background: var(--accent-muted);
+}
+
+.tabName {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  padding: 5px 4px 5px 9px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tabOn .tabName {
+  color: var(--text-primary);
+}
+
+.tabProtocol {
+  flex: none;
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--text-tertiary);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 0 4px;
+}
+
+.tabOn .tabProtocol {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.tabClose {
+  flex: none;
+  color: var(--text-tertiary);
+  padding: 4px 8px 4px 5px;
+  font-size: 11px;
+}
+
+.tabClose:hover {
+  color: var(--status-error);
+}
+
+.tabAdd {
+  padding: 4px 11px;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.tabAdd:hover {
+  border-color: var(--accent);
+  color: var(--text-primary);
+}

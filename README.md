@@ -67,10 +67,18 @@ to read — a broken palette fails there rather than in front of you.
 
 ## The home screen
 
-The app opens on a card grid — Quick connect, Hosts, Credentials, Logs, SFTP/SCP — each showing
-live counts, and each opening that thing as a list in the main pane. The sidebar mirrors it: the
-same entry drives both panels. Sessions keep running (and logging) behind whatever is on screen;
-a "back to sessions" control returns to the dock.
+With nothing connected, the app opens on a card grid — Quick connect, Hosts, Credentials, Logs,
+File transfer — each showing live counts, and each opening that thing as a list in the main pane.
+The sidebar mirrors it: the same entry drives both panels.
+
+**With sessions open, Home is the sessions.** The card grid is what stands in when there is no
+work to go back to; once there are connections, Home lands on the dock and its tabs rather than
+on a menu to click through. Every card's destination is in the sidebar regardless. Sessions keep
+running (and logging) behind whatever else is on screen.
+
+The two tabbed areas are deliberately separate: terminals live in the session dock, file
+transfers live on their own screen with their own tabs, and neither competes with the other for
+the pane.
 
 ## Terminal clipboard
 
@@ -105,7 +113,24 @@ file, and the message does not pretend otherwise.
 
 ## File transfer
 
-**File transfer** is its own entry in the sidebar, and the pane takes one of three sources:
+**File transfer** is its own entry in the sidebar, and every open transfer is a tab on it — the
+same way every session is a pane in the dock. A tab is a live transfer: closing one disconnects
+it (a standalone connection) or lets it go with its session, and nothing is left running out of
+sight. Opening the screen with a session up and no tabs open starts that session's transfer, so
+the common path is still one click.
+
+That replaced a single dropdown, and the reason is worth recording: a second connection made from
+the pane stayed open and paid for in the main process, but the picker silently re-selected the
+session on the way back and offered no way to close the other. It was still in the list, but
+nothing about the screen said so. Tabs make every open transfer visible, selectable, and
+closable, and the tabs live in a store rather than in the pane — the pane is unmounted every time
+the user looks at anything else.
+
+Whatever is open in the main process is the authority: arriving at the screen squares the tabs
+against it, adopting any connection that has lost its tab and dropping any tab whose connection
+or session has gone.
+
+A transfer takes one of three sources:
 
 - **An open SSH session**, over **SFTP or SCP** — a toggle in the toolbar, because which one
   works is the device's decision and not worth a reconnect to find out. Either rides the session

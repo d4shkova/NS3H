@@ -241,7 +241,11 @@ export function App(): JSX.Element {
             )}
           </div>
 
-          <SessionOverlays />
+          {/* Send break, Files, Clear act on the active terminal, so they belong to the
+              dock and not over whatever else is using the pane. The prompt inside stays
+              mounted either way — a session waiting on a password must not be silenced
+              by navigating elsewhere. */}
+          <SessionOverlays showToolbar={showDock} />
         </main>
       </div>
 

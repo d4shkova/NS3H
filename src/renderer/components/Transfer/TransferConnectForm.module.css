@@ -156,3 +156,52 @@
   font-family: var(--font-mono);
   color: var(--text-primary);
 }
+
+/* Sessions already open, offered above the form. */
+.sessions {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-panel);
+  padding: 12px;
+  margin-bottom: 20px;
+}
+
+.sessionsTitle {
+  margin: 0 0 9px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+.session {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 11px;
+  margin-bottom: 6px;
+  color: var(--text-primary);
+}
+
+.session:hover {
+  border-color: var(--accent);
+  background: var(--accent-muted);
+}
+
+.sessionNote {
+  flex: none;
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+.sessionsOr {
+  margin: 10px 0 0;
+  font-size: 11.5px;
+  color: var(--text-tertiary);
+}

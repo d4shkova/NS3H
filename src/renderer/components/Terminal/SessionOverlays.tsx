@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useSessions } from '@renderer/stores/sessions.js';
 import { useConfig } from '@renderer/stores/config.js';
+import { sessionTab, useTransfers } from '@renderer/stores/transfers.js';
 import { terminals } from '@renderer/terminals/registry.js';
 import styles from './SessionOverlays.module.css';
 
@@ -11,7 +12,7 @@ import styles from './SessionOverlays.module.css';
  * moment — so anything that would have to move with it lives here instead, anchored to
  * the session area and acting on whichever session is active.
  */
-export function SessionOverlays(): JSX.Element | null {
+export function SessionOverlays({ showToolbar }: { showToolbar: boolean }): JSX.Element | null {
   const tabs = useSessions((state) => state.tabs);
   const activeId = useSessions((state) => state.activeId);
   const prompt = useSessions((state) => (activeId ? state.authPrompts[activeId] : undefined));
@@ -25,6 +26,7 @@ export function SessionOverlays(): JSX.Element | null {
 
   return (
     <>
+      {showToolbar && (
       <div className={styles.toolbar}>
         {tab.protocol === 'serial' && (
           <button
@@ -49,7 +51,13 @@ export function SessionOverlays(): JSX.Element | null {
             type="button"
             className={styles.button}
             title="Transfer files over this session"
-            onClick={() => setView({ kind: 'transfer' })}
+            onClick={() => {
+              // Opens this session's transfer, or focuses the tab it already has, so the
+              // button always lands on the right one rather than on whatever was last
+              // looked at.
+              useTransfers.getState().open(sessionTab(tab.id, `${tab.name} (${tab.address})`));
+              setView({ kind: 'transfer' });
+            }}
           >
             Files
           </button>
@@ -63,6 +71,7 @@ export function SessionOverlays(): JSX.Element | null {
           Clear
         </button>
       </div>
+      )}
 
       {prompt && (
         <AuthPromptForm
