@@ -9,6 +9,7 @@ const SECTIONS: { key: SidebarSection; label: string; icon: string }[] = [
   { key: 'hosts', label: 'Hosts', icon: '▤' },
   { key: 'credentials', label: 'Credentials', icon: '⚿' },
   { key: 'logs', label: 'Logs', icon: '≡' },
+  { key: 'transfer', label: 'File transfer', icon: '⇅' },
   { key: 'quick', label: 'Quick connect', icon: '⚡' },
 ];
 
@@ -57,6 +58,12 @@ export function Sidebar(): JSX.Element {
           <p className={styles.placeholder}>
             One folder per device. Open a session to read it here — virtualised and
             searchable, however large it is.
+          </p>
+        )}
+        {section === 'transfer' && (
+          <p className={styles.placeholder}>
+            SFTP or SMB. An open SSH session can be used as-is; anything else is a
+            connection the pane makes itself, with no CLI session and nothing saved.
           </p>
         )}
         {section === 'quick' && (

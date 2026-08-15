@@ -153,6 +153,33 @@ export class ConfigService {
     };
   }
 
+  /**
+   * A saved credential resolved for a standalone transfer connection (§ phase 12), which
+   * has no host record behind it. Secrets are read here, in main, exactly as they are for
+   * a session — the renderer asks by id and never sees one.
+   */
+  async resolveCredential(credentialId: string): Promise<SshAuth | null> {
+    const credential = (await this.credentials.read()).credentials.find(
+      (entry) => entry.id === credentialId,
+    );
+    if (!credential) return null;
+
+    if (credential.type === 'key' && credential.keyPath) {
+      const passphrase = await this.secrets.get(credential.id, 'passphrase');
+      return {
+        kind: 'key',
+        username: credential.username,
+        keyPath: credential.keyPath,
+        ...(passphrase ? { passphrase } : {}),
+      };
+    }
+
+    const password = await this.secrets.get(credential.id, 'password');
+    return password
+      ? { kind: 'password', username: credential.username, password }
+      : { kind: 'prompt', username: credential.username };
+  }
+
   private async resolveAuth(host: Host): Promise<SshAuth> {
     if (host.inlineCredential) {
       const inline = host.inlineCredential;

@@ -62,6 +62,13 @@ export class SshConnection {
   constructor(
     private readonly target: SshTarget,
     private readonly callbacks: SshCallbacks,
+    /**
+     * A transfer-only connection authenticates and stops there (§ phase 12): no shell
+     * channel, so nothing is echoed, logged, or shown in a terminal. Everything else —
+     * the algorithm ladder, host-key verification, the auth re-prompt — is identical,
+     * which is the reason this is an option here rather than a second class.
+     */
+    private readonly options: { shell?: boolean } = {},
   ) {}
 
   get negotiatedAlgorithms(): NegotiatedAlgorithms | null {
@@ -305,6 +312,12 @@ export class SshConnection {
       });
 
       client.on('ready', () => {
+        if (this.options.shell === false) {
+          if (this.negotiation) this.callbacks.onConnected(this.negotiation);
+          finish({ kind: 'ready' });
+          return;
+        }
+
         client.shell(
           { term: 'xterm-256color', cols: this.cols, rows: this.rows },
           (error, stream) => {
@@ -338,6 +351,14 @@ export class SshConnection {
       });
 
       client.on('close', () => {
+        // A shell session hears about a drop through its stream. A transfer-only
+        // connection has no stream, so the client's own close is the only signal.
+        if (settled) {
+          if (this.options.shell === false && !this.disposed) {
+            this.callbacks.onClosed('The connection closed.');
+          }
+          return;
+        }
         finish({
           kind: 'failed',
           failure: classifySshError(

@@ -34,6 +34,43 @@ export interface TransferEvent {
   detail?: string;
 }
 
+/**
+ * A transfer that does not ride on an open terminal session (§ phase 12).
+ *
+ * SFTP over its own SSH connection, or SMB to a Windows or Samba share. Neither needs a
+ * CLI session first — a firmware image often has to be pushed to a box nobody wants a
+ * shell on, and the file server it comes from has no shell at all.
+ */
+export type FileProtocol = 'sftp' | 'smb';
+
+export interface FileTargetInput {
+  protocol: FileProtocol;
+  host: string;
+  port: number;
+  username: string;
+  /** Sent for this connection only — a standalone target is never written to disk. */
+  password?: string;
+  /** SFTP with key auth. */
+  keyPath?: string;
+  passphrase?: string;
+  /** Reuses a saved credential's secret instead of a typed one. */
+  credentialId?: string;
+  /** SMB: the share to attach, without the leading `\\host\`. */
+  share?: string;
+  /** SMB: NTLM domain or workgroup. */
+  domain?: string;
+}
+
+/** A live standalone connection, as the transfer pane lists it. */
+export interface FileConnection {
+  id: string;
+  protocol: FileProtocol;
+  /** `admin@10.1.1.5` or `\\fileserver\images`. */
+  label: string;
+  /** Where the pane opens: the SFTP home directory, or the share root. */
+  home: string;
+}
+
 export interface Collision {
   kind: 'host' | 'folder' | 'credential';
   id: string;

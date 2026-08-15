@@ -12,11 +12,13 @@ import { listSerialPorts } from '../serial/ports.js';
 import { listLogFolders, listLogSessions } from '../logging/browse.js';
 import { LogReader } from '../logging/reader.js';
 import { listLocal } from '../ssh/sftp.js';
+import { TransferHub, isTransferConnectionId } from '../files/hub.js';
+import type { FileTransport } from '../files/transport.js';
 import { TransferService, bundleFileName, configFileName } from '../transfer/index.js';
 import { randomBytes } from 'node:crypto';
 import type { SerialConfig } from '@shared/config.js';
 import type { TelnetTargetInput } from '@shared/types.js';
-import type { TransferEvent } from '@shared/transfer.js';
+import type { FileTargetInput, TransferEvent } from '@shared/transfer.js';
 
 type TransferStatus = TransferEvent['status'];
 
@@ -69,9 +71,81 @@ function managerFor(sender: WebContents): SessionManager {
     sender.once('destroyed', () => {
       manager?.closeAll();
       managers.delete(sender.id);
+      hubs.get(sender.id)?.closeAll();
+      hubs.delete(sender.id);
     });
   }
   return manager;
+}
+
+/** Standalone transfer connections, one hub per renderer alongside its manager. */
+const hubs = new Map<number, TransferHub>();
+
+function hubFor(sender: WebContents): TransferHub {
+  let hub = hubs.get(sender.id);
+  if (!hub) {
+    // The manager is what raises host-key and password prompts, so the hub borrows it.
+    hub = new TransferHub(managerFor(sender));
+    hubs.set(sender.id, hub);
+  }
+  return hub;
+}
+
+/**
+ * The transfer pane addresses a session and a standalone connection the same way; the
+ * id says which is which.
+ */
+function transportFor(sender: WebContents, id: string): Promise<FileTransport> {
+  return isTransferConnectionId(id)
+    ? Promise.resolve(hubFor(sender).transport(id))
+    : managerFor(sender).transport(id);
+}
+
+const FILE_PROTOCOLS = ['sftp', 'smb'];
+
+/** Untrusted, like everything else from the renderer — and it carries a password. */
+async function parseFileTarget(raw: unknown): Promise<FileTargetInput> {
+  const input = raw as FileTargetInput;
+  if (!FILE_PROTOCOLS.includes(input?.protocol)) {
+    throw new Error('A transfer target must be sftp or smb.');
+  }
+  requireString(input.host, 'host');
+  if (typeof input.port !== 'number' || input.port < 1 || input.port > 65535) {
+    throw new Error('port must be between 1 and 65535');
+  }
+
+  const target: FileTargetInput = {
+    protocol: input.protocol,
+    host: input.host,
+    port: input.port,
+    username: typeof input.username === 'string' ? input.username : '',
+    ...(typeof input.password === 'string' && input.password ? { password: input.password } : {}),
+    ...(typeof input.share === 'string' ? { share: input.share } : {}),
+    ...(typeof input.domain === 'string' ? { domain: input.domain } : {}),
+  };
+
+  // A saved credential is resolved here so its secret never travels to the renderer and
+  // back. What the renderer sent is only used when no credential was chosen.
+  if (typeof input.credentialId === 'string' && input.credentialId) {
+    const auth = await config().resolveCredential(input.credentialId);
+    if (!auth) throw new Error('That credential no longer exists.');
+    target.username = auth.username || target.username;
+    if (auth.kind === 'key') {
+      target.keyPath = auth.keyPath;
+      if (auth.passphrase) target.passphrase = auth.passphrase;
+      delete target.password;
+    } else if (auth.kind === 'password') {
+      target.password = auth.password;
+    }
+  } else if (typeof input.keyPath === 'string' && input.keyPath) {
+    target.keyPath = input.keyPath;
+    if (typeof input.passphrase === 'string' && input.passphrase) {
+      target.passphrase = input.passphrase;
+    }
+  }
+
+  if (!target.username) throw new Error('username must not be empty');
+  return target;
 }
 
 function requireString(value: unknown, field: string): string {
@@ -385,15 +459,26 @@ export function registerIpc(): void {
 
   ipcMain.handle(IpcChannel.serialList, () => listSerialPorts());
 
-  ipcMain.handle(IpcChannel.transferRemoteHome, (event, sessionId: unknown) =>
-    managerFor(event.sender).remoteHome(requireString(sessionId, 'sessionId')),
+  ipcMain.handle(IpcChannel.transferConnect, async (event, raw: unknown) =>
+    hubFor(event.sender).connect(await parseFileTarget(raw)),
   );
 
-  ipcMain.handle(IpcChannel.transferRemoteList, (event, sessionId: unknown, path: unknown) =>
-    managerFor(event.sender).remoteList(
-      requireString(sessionId, 'sessionId'),
-      requireString(path, 'path'),
-    ),
+  ipcMain.handle(IpcChannel.transferConnections, (event) => hubFor(event.sender).list());
+
+  ipcMain.handle(IpcChannel.transferDisconnect, (event, id: unknown) => {
+    hubFor(event.sender).disconnect(requireString(id, 'connectionId'));
+  });
+
+  ipcMain.handle(IpcChannel.transferRemoteHome, async (event, connectionId: unknown) =>
+    (await transportFor(event.sender, requireString(connectionId, 'connectionId'))).home(),
+  );
+
+  ipcMain.handle(
+    IpcChannel.transferRemoteList,
+    async (event, connectionId: unknown, path: unknown) =>
+      (await transportFor(event.sender, requireString(connectionId, 'connectionId'))).list(
+        requireString(path, 'path'),
+      ),
   );
 
   ipcMain.handle(IpcChannel.transferLocalList, (_event, path: unknown) =>
@@ -424,8 +509,9 @@ export function registerIpc(): void {
       });
 
       try {
-        const target = await managerFor(event.sender).download(
-          session, remote, requireString(localDirectory, 'localDirectory'),
+        const transport = await transportFor(event.sender, session);
+        const target = await transport.download(
+          remote, requireString(localDirectory, 'localDirectory'),
           ({ transferred, total }) => report.running(transferred, total),
         );
         report.finish('done');
@@ -450,8 +536,9 @@ export function registerIpc(): void {
       });
 
       try {
-        const target = await managerFor(event.sender).upload(
-          session, local, requireString(remoteDirectory, 'remoteDirectory'),
+        const transport = await transportFor(event.sender, session);
+        const target = await transport.upload(
+          local, requireString(remoteDirectory, 'remoteDirectory'),
           ({ transferred, total }) => report.running(transferred, total),
         );
         report.finish('done');
@@ -514,6 +601,8 @@ export function registerIpc(): void {
 }
 
 export function closeAllSessions(): void {
+  for (const hub of hubs.values()) hub.closeAll();
+  hubs.clear();
   for (const manager of managers.values()) manager.closeAll();
   managers.clear();
 }

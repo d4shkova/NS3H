@@ -105,14 +105,37 @@ file, and the message does not pretend otherwise.
 
 ## File transfer
 
-SFTP opens a channel **on the session that is already up**, so a transfer costs no second
-authentication and reuses the crypto that was negotiated for the shell. A dual pane shows the
-local filesystem beside the device, with per-file arrows and a progress row; large files report
-as they go rather than appearing to hang.
+**File transfer** is its own entry in the sidebar, and the pane takes one of three sources:
+
+- **An open SSH session.** SFTP opens a channel on the session that is already up, so the
+  transfer costs no second authentication and reuses the crypto negotiated for the shell.
+- **SFTP on its own connection.** No CLI session needed — enter an address and credentials and
+  the pane connects for itself. This is the same `SshConnection` a terminal session uses, opened
+  with `shell: false`, so it gets the identical algorithm ladder, known-hosts check and host-key
+  modal; it simply never asks for a shell channel.
+- **SMB.** A Windows or Samba share, attached by `\\host\share`.
+
+A standalone target is **not saved**, the way Quick connect is not: it is used for that
+connection and forgotten. A saved credential can be picked instead of typing a password — the
+secret is resolved in main, so the renderer neither sends nor receives one.
 
 Telnet and serial sessions say so rather than offering a transfer they cannot carry.
 
-**A device with no SFTP subsystem is the normal case, not a fault.** Most switches and routers
+**What a standalone SFTP connection cannot do:** answer a multi-prompt challenge. A session
+puts an authentication prompt in its terminal; a standalone connection has no terminal and no
+tab to anchor one to, so the password from the form answers the first round and anything beyond
+that fails with a message rather than waiting on a modal that cannot appear. A device demanding
+a second factor has to be reached by opening an SSH session and transferring over it.
+
+**SMB is SMB2 only.** `@tryjsky/v9u-smb2` is a pure-JS client — no native module, so it packages
+on all three platforms — and it speaks SMB2. A host offering only SMB1 (an old NAS, or a box
+with SMB2 switched off) reports `STATUS_NOT_SUPPORTED`, which NS3H translates into that
+sentence rather than the status code. The other codes worth naming — a bad password, a missing
+share, a share the account cannot reach — are translated too.
+
+**A device with no SFTP subsystem is the normal case, not a fault.** This applies to a session's
+SFTP channel; a standalone SFTP connection to the same device fails the same way, for the same
+reason. Most switches and routers
 run an SSH server without one, and ssh2 reports that as a bare `Channel open failure:` with no
 reason attached. NS3H names the device, keeps whatever reason it did give, and says what to check
 (`ip ssh server sftp` on IOS) — and drops the ssh2 stack, which pointed at protocol internals for

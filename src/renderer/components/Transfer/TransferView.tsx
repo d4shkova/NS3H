@@ -1,7 +1,13 @@
-import { useCallback, useEffect, useState } from 'react';
-import type { LocalEntry, RemoteEntry, TransferEvent } from '@shared/transfer.js';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import type {
+  FileConnection,
+  LocalEntry,
+  RemoteEntry,
+  TransferEvent,
+} from '@shared/transfer.js';
 import { useConfig } from '@renderer/stores/config.js';
 import { useSessions } from '@renderer/stores/sessions.js';
+import { TransferConnectForm } from './TransferConnectForm.js';
 import styles from './TransferView.module.css';
 
 function formatBytes(bytes: number): string {
@@ -11,22 +17,29 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
 }
 
+/** Either side of the picker: a live session, or a connection of the pane's own. */
+interface Source {
+  id: string;
+  label: string;
+  /** Standalone connections can be disconnected here; a session's is closed with it. */
+  standalone: boolean;
+}
+
 /**
- * Dual-pane SFTP (phase 9): the local filesystem on the left, the device on the right,
- * for whichever SSH session is selected. The transfer runs over the session that is
- * already open, so it costs no second authentication.
+ * Dual-pane file transfer: the local filesystem on the left, the remote side on the right.
+ *
+ * The remote side is whichever source is picked — an SSH session that is already open,
+ * whose SFTP channel is reused at no second authentication, or a connection this pane
+ * made itself (§ phase 12): SFTP to a device with no session open, or SMB to a share.
  */
 export function TransferView(): JSX.Element {
   const setView = useConfig((state) => state.setView);
   const tabs = useSessions((state) => state.tabs);
   const activeId = useSessions((state) => state.activeId);
 
-  const sshSessions = tabs.filter(
-    (tab) => tab.protocol === 'ssh' && tab.status === 'connected',
-  );
-  const [sessionId, setSessionId] = useState(
-    () => sshSessions.find((tab) => tab.id === activeId)?.id ?? sshSessions[0]?.id ?? '',
-  );
+  const [connections, setConnections] = useState<FileConnection[]>([]);
+  const [connecting, setConnecting] = useState(false);
+  const [sourceId, setSourceId] = useState('');
 
   const [local, setLocal] = useState<{ path: string; entries: LocalEntry[] }>({
     path: '',
@@ -37,6 +50,40 @@ export function TransferView(): JSX.Element {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [transfers, setTransfers] = useState<TransferEvent[]>([]);
+
+  const sources: Source[] = useMemo(
+    () => [
+      ...tabs
+        .filter((tab) => tab.protocol === 'ssh' && tab.status === 'connected')
+        .map((tab) => ({
+          id: tab.id,
+          label: `${tab.name} (${tab.address}) — open session`,
+          standalone: false,
+        })),
+      ...connections.map((connection) => ({
+        id: connection.id,
+        label: `${connection.label} — ${connection.protocol.toUpperCase()}`,
+        standalone: true,
+      })),
+    ],
+    [tabs, connections],
+  );
+
+  // Pick something sensible on arrival, and never keep pointing at a source that has
+  // gone — a session that closed, or a connection that was disconnected.
+  useEffect(() => {
+    if (sources.some((source) => source.id === sourceId)) return;
+    const preferred = sources.find((source) => source.id === activeId) ?? sources[0];
+    setSourceId(preferred?.id ?? '');
+    if (!preferred) {
+      setRemote([]);
+      setRemotePath('');
+    }
+  }, [sources, sourceId, activeId]);
+
+  useEffect(() => {
+    void window.ns3h.transfer.connections().then(setConnections).catch(() => setConnections([]));
+  }, []);
 
   const loadLocal = useCallback(async (path: string) => {
     try {
@@ -61,16 +108,16 @@ export function TransferView(): JSX.Element {
   }, [loadLocal]);
 
   useEffect(() => {
-    if (!sessionId) return undefined;
+    if (!sourceId) return undefined;
     setError(null);
-    // StrictMode runs this twice in development, and switching sessions quickly can
-    // leave an earlier lookup in flight; a stale result must not overwrite the pane or
-    // report an error for a session the user has already navigated away from.
+    // StrictMode runs this twice in development, and switching sources quickly can leave
+    // an earlier lookup in flight; a stale result must not overwrite the pane or report
+    // an error for a source the user has already navigated away from.
     let current = true;
     void window.ns3h.transfer
-      .remoteHome(sessionId)
+      .remoteHome(sourceId)
       .then((home) => {
-        if (current) void loadRemote(sessionId, home);
+        if (current) void loadRemote(sourceId, home);
       })
       .catch((cause: Error) => {
         if (current) setError(cause.message);
@@ -78,7 +125,7 @@ export function TransferView(): JSX.Element {
     return () => {
       current = false;
     };
-  }, [sessionId, loadRemote]);
+  }, [sourceId, loadRemote]);
 
   useEffect(() => {
     return window.ns3h.transfer.onProgress((event) => {
@@ -89,16 +136,16 @@ export function TransferView(): JSX.Element {
       });
       if (event.status === 'done') {
         void loadLocal(local.path);
-        if (sessionId && remotePath) void loadRemote(sessionId, remotePath);
+        if (sourceId && remotePath) void loadRemote(sourceId, remotePath);
       }
     });
-  }, [loadLocal, loadRemote, local.path, remotePath, sessionId]);
+  }, [loadLocal, loadRemote, local.path, remotePath, sourceId]);
 
   const download = async (entry: RemoteEntry) => {
     setBusy(true);
     setError(null);
     try {
-      await window.ns3h.transfer.download(sessionId, entry.path, local.path);
+      await window.ns3h.transfer.download(sourceId, entry.path, local.path);
     } catch (cause) {
       setError((cause as Error).message);
     } finally {
@@ -110,7 +157,7 @@ export function TransferView(): JSX.Element {
     setBusy(true);
     setError(null);
     try {
-      await window.ns3h.transfer.upload(sessionId, entry.path, remotePath);
+      await window.ns3h.transfer.upload(sourceId, entry.path, remotePath);
     } catch (cause) {
       setError((cause as Error).message);
     } finally {
@@ -118,20 +165,48 @@ export function TransferView(): JSX.Element {
     }
   };
 
-  if (sshSessions.length === 0) {
+  const connected = (connection: FileConnection) => {
+    setConnections((current) => [...current, connection]);
+    setSourceId(connection.id);
+    setConnecting(false);
+  };
+
+  const disconnect = async (id: string) => {
+    await window.ns3h.transfer.disconnect(id);
+    setConnections((current) => current.filter((connection) => connection.id !== id));
+  };
+
+  // Nothing to browse and nothing open: the form is the screen, not an empty state.
+  if (sources.length === 0 || connecting) {
     return (
-      <div className={styles.empty}>
-        <h1 className={styles.heading}>SFTP</h1>
-        <p>
-          File transfer runs over a connected SSH session. Open one first — telnet and
-          serial cannot carry it.
-        </p>
-        <button type="button" className={styles.primary} onClick={() => setView({ kind: 'quick' })}>
-          Connect to something
-        </button>
+      <div className={styles.wrap}>
+        <div className={styles.bar}>
+          <button
+            type="button"
+            className={styles.back}
+            onClick={() => setView({ kind: sources.length > 0 ? 'transfer' : 'home' })}
+          >
+            ←
+          </button>
+          <h1 className={styles.heading}>File transfer</h1>
+        </div>
+        <div className={styles.formHost}>
+          <TransferConnectForm
+            onConnected={connected}
+            onCancel={sources.length > 0 ? () => setConnecting(false) : null}
+          />
+          {sources.length === 0 && (
+            <p className={styles.formFoot}>
+              Already have an SSH session open? It appears here as a source on its own —
+              transferring over it costs no second login.
+            </p>
+          )}
+        </div>
       </div>
     );
   }
+
+  const source = sources.find((entry) => entry.id === sourceId) ?? null;
 
   return (
     <div className={styles.wrap}>
@@ -139,16 +214,26 @@ export function TransferView(): JSX.Element {
         <button type="button" className={styles.back} onClick={() => setView({ kind: 'sessions' })}>
           ← Session
         </button>
-        <h1 className={styles.heading}>SFTP</h1>
-        <select value={sessionId} onChange={(event) => setSessionId(event.target.value)}>
-          {sshSessions.map((tab) => (
-            <option key={tab.id} value={tab.id}>
-              {tab.name} ({tab.address})
+        <h1 className={styles.heading}>File transfer</h1>
+        <select value={sourceId} onChange={(event) => setSourceId(event.target.value)}>
+          {sources.map((entry) => (
+            <option key={entry.id} value={entry.id}>
+              {entry.label}
             </option>
           ))}
         </select>
+        <button type="button" className={styles.back} onClick={() => setConnecting(true)}>
+          New connection
+        </button>
+        {source?.standalone && (
+          <button type="button" className={styles.back} onClick={() => void disconnect(source.id)}>
+            Disconnect
+          </button>
+        )}
         <span className={styles.hint}>
-          Runs over the open session — no second login, same negotiated crypto.
+          {source?.standalone
+            ? 'A connection of its own — nothing about it is saved.'
+            : 'Runs over the open session — no second login, same negotiated crypto.'}
         </span>
       </div>
 
@@ -203,11 +288,11 @@ export function TransferView(): JSX.Element {
 
         <section className={styles.pane}>
           <header className={styles.paneHead}>
-            <span className={styles.paneTitle}>Device</span>
+            <span className={styles.paneTitle}>{source?.standalone ? 'Remote' : 'Device'}</span>
             <button
               type="button"
               disabled={!remotePath || remotePath === '/'}
-              onClick={() => void loadRemote(sessionId, remotePath.replace(/\/[^/]+\/?$/, '') || '/')}
+              onClick={() => void loadRemote(sourceId, remotePath.replace(/\/[^/]+\/?$/, '') || '/')}
             >
               Up
             </button>
@@ -218,7 +303,7 @@ export function TransferView(): JSX.Element {
               <div
                 key={entry.path}
                 className={styles.row}
-                onDoubleClick={() => entry.directory && void loadRemote(sessionId, entry.path)}
+                onDoubleClick={() => entry.directory && void loadRemote(sourceId, entry.path)}
               >
                 {!entry.directory && (
                   <button

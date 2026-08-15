@@ -104,6 +104,10 @@ const api: Ns3hApi = {
     upload: (sessionId: string, localPath: string, remoteDirectory: string) =>
       ipcRenderer.invoke(IpcChannel.transferUpload, sessionId, localPath, remoteDirectory),
     chooseDirectory: () => ipcRenderer.invoke(IpcChannel.transferChooseDirectory),
+    connect: (target) => ipcRenderer.invoke(IpcChannel.transferConnect, target),
+    connections: () => ipcRenderer.invoke(IpcChannel.transferConnections),
+    disconnect: (connectionId: string) =>
+      ipcRenderer.invoke(IpcChannel.transferDisconnect, connectionId),
     onProgress: (handler: (event: TransferEvent) => void) =>
       subscribe<TransferEvent>(IpcChannel.transferProgress, handler),
   },

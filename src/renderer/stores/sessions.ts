@@ -23,7 +23,13 @@ export interface SessionTab {
   logPath?: string;
 }
 
-export type SidebarSection = 'home' | 'hosts' | 'credentials' | 'logs' | 'quick';
+export type SidebarSection =
+  | 'home'
+  | 'hosts'
+  | 'credentials'
+  | 'logs'
+  | 'transfer'
+  | 'quick';
 
 interface SessionState {
   tabs: SessionTab[];
