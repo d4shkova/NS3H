@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron';
+import { contextBridge, ipcRenderer, webUtils, type IpcRendererEvent } from 'electron';
 import { IpcChannel } from '@shared/ipc.js';
 import type { Ns3hApi } from '@shared/api.js';
 import type { SerialConfig } from '@shared/config.js';
@@ -24,6 +24,35 @@ function subscribe<T>(channel: string, handler: (payload: T) => void): Unsubscri
   return () => ipcRenderer.removeListener(channel, listener);
 }
 
+/**
+ * Coalesces identical in-flight calls onto one round trip.
+ *
+ * Opening the transfer pane asks for the device's home directory from an effect that
+ * React runs twice under StrictMode, and a session-switch can overlap the previous
+ * lookup. Each duplicate opened its own SFTP channel and, on a device with no SFTP
+ * subsystem, logged its own refusal — the same failure printed twice.
+ */
+function coalesce<A extends unknown[], R>(
+  key: (...args: A) => string,
+  call: (...args: A) => Promise<R>,
+): (...args: A) => Promise<R> {
+  const inFlight = new Map<string, Promise<R>>();
+  return (...args: A) => {
+    const id = key(...args);
+    const existing = inFlight.get(id);
+    if (existing) return existing;
+    const pending = call(...args).finally(() => inFlight.delete(id));
+    inFlight.set(id, pending);
+    return pending;
+  };
+}
+
+const remoteHome = coalesce(
+  (sessionId: string) => sessionId,
+  (sessionId: string) =>
+    ipcRenderer.invoke(IpcChannel.transferRemoteHome, sessionId) as Promise<string>,
+);
+
 const api: Ns3hApi = {
   platform: () => ipcRenderer.invoke(IpcChannel.platformInfo) as Promise<{ platform: string }>,
 
@@ -39,6 +68,8 @@ const api: Ns3hApi = {
       ipcRenderer.invoke(IpcChannel.configDeleteCredential, credentialId),
     saveSettings: (patch) => ipcRenderer.invoke(IpcChannel.configSaveSettings, patch),
     chooseLogDirectory: () => ipcRenderer.invoke(IpcChannel.configChooseLogDirectory),
+    revealSecret: (ownerId: string, kind: 'password' | 'passphrase') =>
+      ipcRenderer.invoke(IpcChannel.configRevealSecret, ownerId, kind) as Promise<string | null>,
   },
 
   shell: {
@@ -65,9 +96,16 @@ const api: Ns3hApi = {
     list: () => ipcRenderer.invoke(IpcChannel.serialList) as Promise<SerialPortInfo[]>,
   },
 
+  lock: {
+    status: () => ipcRenderer.invoke(IpcChannel.lockStatus),
+    unlock: (password: string) => ipcRenderer.invoke(IpcChannel.lockUnlock, password),
+    set: (password: string | null, current: string | null) =>
+      ipcRenderer.invoke(IpcChannel.lockSet, password, current),
+    reset: () => ipcRenderer.invoke(IpcChannel.lockReset),
+  },
+
   transfer: {
-    remoteHome: (sessionId: string) =>
-      ipcRenderer.invoke(IpcChannel.transferRemoteHome, sessionId),
+    remoteHome,
     remoteList: (sessionId: string, path: string) =>
       ipcRenderer.invoke(IpcChannel.transferRemoteList, sessionId, path),
     localList: (path: string) => ipcRenderer.invoke(IpcChannel.transferLocalList, path),
@@ -76,6 +114,27 @@ const api: Ns3hApi = {
     upload: (sessionId: string, localPath: string, remoteDirectory: string) =>
       ipcRenderer.invoke(IpcChannel.transferUpload, sessionId, localPath, remoteDirectory),
     chooseDirectory: () => ipcRenderer.invoke(IpcChannel.transferChooseDirectory),
+    /**
+     * The filesystem path behind a dropped `File`.
+     *
+     * Electron 32 removed `File.path`, and a sandboxed renderer cannot reach `webUtils`
+     * itself — so the lookup happens here, in the preload, which is the only place it is
+     * available. Nothing is read: this hands back a path, and the upload that follows
+     * goes through the same main-process code any other upload does.
+     */
+    pathForFile: (file: File) => {
+      try {
+        return webUtils.getPathForFile(file);
+      } catch {
+        // A drop that is not a real file — text, a URL, a browser-generated blob — has
+        // no path on disk, and the pane says so rather than failing obscurely.
+        return '';
+      }
+    },
+    connect: (target) => ipcRenderer.invoke(IpcChannel.transferConnect, target),
+    connections: () => ipcRenderer.invoke(IpcChannel.transferConnections),
+    disconnect: (connectionId: string) =>
+      ipcRenderer.invoke(IpcChannel.transferDisconnect, connectionId),
     onProgress: (handler: (event: TransferEvent) => void) =>
       subscribe<TransferEvent>(IpcChannel.transferProgress, handler),
   },

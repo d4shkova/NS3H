@@ -92,9 +92,9 @@ export function HomeView(): JSX.Element {
     {
       key: 'transfer',
       icon: '⇅',
-      title: 'SFTP / SCP',
-      description: 'Move files to and from a device over an SSH session.',
-      detail: () => 'Runs over an open SSH session',
+      title: 'File transfer',
+      description: 'Move files to and from a device or a file server.',
+      detail: () => 'SFTP, SCP, or SMB — an open session, or its own connection',
       onOpen: () => setView({ kind: 'transfer' }),
     },
   ];

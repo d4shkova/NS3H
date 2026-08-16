@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { Credential } from '@shared/config.js';
 import { useConfig } from '@renderer/stores/config.js';
 import styles from './form.module.css';
+import { SecretInput } from './SecretInput.js';
 
 interface Props {
   credential: Credential | null;
@@ -64,8 +65,8 @@ export function CredentialForm({ credential }: Props): JSX.Element {
       <form className={styles.card} onSubmit={submit}>
         <h1 className={styles.heading}>{isEdit ? 'Edit credential' : 'Add credential'}</h1>
         <p className={styles.sub}>
-          Reusable across hosts. Secrets go to the OS keychain — never to a config file, and never
-          shown back to you.
+          Reusable across hosts. Secrets go to the OS keychain, never to a config file — and
+          a saved one is only read back when you ask for it with the eye.
         </p>
 
         {!snapshot.secrets.available && (
@@ -122,12 +123,22 @@ export function CredentialForm({ credential }: Props): JSX.Element {
         {field(
           'secret',
           type === 'key' ? 'Passphrase' : 'Password',
-          <input
+          <SecretInput
             id="secret"
-            type="password"
             value={secret}
             placeholder={isEdit ? 'Unchanged' : ''}
-            onChange={(event) => setSecret(event.target.value)}
+            onChange={setSecret}
+            // Only on an existing record, and only when the eye is clicked: the stored
+            // secret is fetched then, not when this form opened.
+            loadStored={
+              isEdit && credential
+                ? () =>
+                    window.ns3h.config.revealSecret(
+                      credential.id,
+                      type === 'key' ? 'passphrase' : 'password',
+                    )
+                : undefined
+            }
           />,
           type === 'key' ? 'Leave blank if the key has no passphrase.' : undefined,
         )}

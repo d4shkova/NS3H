@@ -4,6 +4,7 @@ import type { SerialConfig } from '@shared/config.js';
 import { useSessions } from '@renderer/stores/sessions.js';
 import { DEFAULT_SERIAL, SerialFields } from './SerialFields.js';
 import styles from './ConnectForm.module.css';
+import { SecretInput } from './SecretInput.js';
 
 type AuthMode = 'password' | 'key' | 'prompt';
 
@@ -142,12 +143,7 @@ export function ConnectForm(): JSX.Element {
         {mode === 'password' && (
           <div className={styles.field}>
             <label htmlFor="password">Password</label>
-            <input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-            />
+            <SecretInput id="password" value={password} onChange={setPassword} />
           </div>
         )}
 
@@ -164,12 +160,7 @@ export function ConnectForm(): JSX.Element {
             </div>
             <div className={styles.field}>
               <label htmlFor="passphrase">Passphrase (optional)</label>
-              <input
-                id="passphrase"
-                type="password"
-                value={passphrase}
-                onChange={(event) => setPassphrase(event.target.value)}
-              />
+              <SecretInput id="passphrase" value={passphrase} onChange={setPassphrase} />
             </div>
           </>
         )}

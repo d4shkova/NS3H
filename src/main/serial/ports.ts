@@ -1,5 +1,5 @@
 import { readdir } from 'node:fs/promises';
-import { SerialPort } from 'serialport';
+import { loadSerialPort } from './load.js';
 
 export interface SerialPortInfo {
   path: string;
@@ -28,7 +28,7 @@ export function describePort(port: {
  */
 export async function listSerialPorts(): Promise<SerialPortInfo[]> {
   try {
-    const ports = await SerialPort.list();
+    const ports = await (await loadSerialPort()).list();
     return ports.map((port) => ({
       path: port.path,
       manufacturer: port.manufacturer,

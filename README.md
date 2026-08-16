@@ -8,7 +8,7 @@ See [`NS3H-design-spec.md`](./NS3H-design-spec.md) for the full brief.
 
 ## Status
 
-All eleven phases of the build order are in place.
+All eleven phases of the build order are in place, plus the work that followed them.
 
 | Phase | Scope | State |
 |---|---|---|
@@ -24,6 +24,12 @@ All eleven phases of the build order are in place.
 | 9 | SFTP: dual-pane transfer for SSH sessions | done |
 | 10 | Export / import: both formats | done |
 | 11 | Packaging: electron-builder, CI matrix, README | done |
+| 12 | Standalone transfer: SFTP or SMB with no session behind it | done |
+| 13 | SCP, over a session or its own connection | done |
+| 14 | One tab per open transfer | done |
+
+macOS packaging has been run end to end and produces a `.dmg`; Linux and Windows are built by CI
+on every push.
 
 What works today: quick-connect SSH from the main pane, the full → legacy algorithm retry ladder,
 password / public-key / keyboard-interactive authentication with inline re-prompting, host key
@@ -32,8 +38,8 @@ renderer.
 
 Saved hosts and credentials have full CRUD from the sidebar: a folder tree with search, a
 credentials list, and add/edit forms with inline per-field validation. Double-click a host to
-connect — its credential and secret are resolved in the main process, never handed to the
-renderer. Config persists in `~/.config/ns3h/` (or the platform equivalent), with secrets in the
+connect — its credential and secret are resolved in the main process, so connecting never sends a
+secret to the renderer. Config persists in `~/.config/ns3h/` (or the platform equivalent), with secrets in the
 OS keychain via `safeStorage`.
 
 All three protocols connect: SSH, telnet, and serial, from Quick connect or a saved host.
@@ -44,11 +50,32 @@ viewer with search. A quarter-million-line log renders 120 rows at a time.
 
 ## Themes
 
-Settings carries a theme picker: fourteen palettes, each previewed as a miniature terminal in
-its own colours. NS3H Dark and Light, Kanagawa (Wave, Dragon, Lotus), Everforest (dark and
-light), Night Owl and Light Owl, Flexoki (dark and light), and three high-contrast Hacker
-palettes. They are NS3H's own renderings of well-known colour schemes, not copies of any
-client's assets.
+Settings carries a theme picker: twenty-three palettes, each previewed as a miniature terminal in
+its own colours. Every one is named for something Scandinavian, and the names are the app's own —
+none is borrowed from another client, and a test asserts that.
+
+| Theme | | Theme | |
+|---|---|---|---|
+| **Midnatt** | midnight; the default | **Dagslys** | daylight |
+| **Skumring** | dusk over water | **Skifer** | slate |
+| **Pergament** | parchment | **Furu** | pine forest |
+| **Bjørk** | birch: pale bark, green leaf | **Mørketid** | the polar night |
+| **Lysning** | a clearing, first light | **Tjære** | tar |
+| **Lin** | linen | **Olivin** | olivine, the green mineral |
+| **Blåis** | glacier ice | **Falurød** | the red of a Nordic barn |
+| **Røros** | the copper town: whitewash and burnt orange | **Reinmose** | reindeer lichen on stone |
+| **Nordlys** | the aurora, green through cyan | **Rosemaling** | folk painting on a wine ground |
+| **Glør** | embers, once the flame has gone | **Smelteverk** | the smelter: molten orange, cold quench |
+| **Skogsvann** | a lake in the forest | **Svartisen** | the glacier whose name is "the black ice" |
+| **Nødlys** | emergency lighting: black, grey, red | | |
+
+The last nine were built from supplied colour sets and use their given colours verbatim; the
+remaining thirty-odd slots a theme needs are derived in the same family. Nødlys was asked for by
+description rather than by palette — black and dark grey, red text, red on black in the terminal.
+
+**Renaming changed the ids, which a settings file stores.** Every previous id maps forward to its
+theme, so an install from before the rename keeps the theme it was set to instead of silently
+reverting to the default, and the stored value is rewritten once on the next save.
 
 A theme carries **both halves** — the app's design tokens and the terminal's 16-colour palette —
 in one object (`shared/themes.ts`). Keeping them together is what stops the chrome and the
@@ -67,10 +94,79 @@ to read — a broken palette fails there rather than in front of you.
 
 ## The home screen
 
-The app opens on a card grid — Quick connect, Hosts, Credentials, Logs, SFTP/SCP — each showing
-live counts, and each opening that thing as a list in the main pane. The sidebar mirrors it: the
-same entry drives both panels. Sessions keep running (and logging) behind whatever is on screen;
-a "back to sessions" control returns to the dock.
+With nothing connected, the app opens on a card grid — Quick connect, Hosts, Credentials, Logs,
+File transfer — each showing live counts, and each opening that thing as a list in the main pane.
+The sidebar mirrors it: the same entry drives both panels.
+
+Folders on the Hosts screen fold: the heading is the control, and the state is shared with the
+sidebar tree, so a folder collapsed in one is collapsed in the other. A filter overrides a
+collapse — a match hidden inside a folded folder looks like the filter found nothing.
+
+**A fold outlives the launch.** It is stored in settings as a list of the folders that are shut,
+rather than of the ones that are open: an untouched install stores nothing, and a folder that is
+deleted simply stops being mentioned. The fold is applied the moment it is clicked and written
+afterwards, so it never waits on a file, and two quick clicks cannot undo one another.
+
+**The sidebar shows one label at a time.** A host row carries its name; the address takes the
+name's place while the row is under the cursor or keyboard-focused. Both at once is what made that
+column feel cramped, and the address is the part you only want occasionally. A host whose name is
+already its address has nothing to swap to and stays put.
+
+**With sessions open, Home is the sessions.** The card grid is what stands in when there is no
+work to go back to; once there are connections, Home lands on the dock and its tabs rather than
+on a menu to click through. Every card's destination is in the sidebar regardless. Sessions keep
+running (and logging) behind whatever else is on screen.
+
+The two tabbed areas are deliberately separate: terminals live in the session dock, file
+transfers live on their own screen with their own tabs, and neither competes with the other for
+the pane.
+
+## Secrets on screen
+
+Every password and passphrase field — Quick connect, host and credential forms, the transfer
+connect form, backup passphrases, and a device's own keyboard-interactive prompt — has an eye to
+reveal it and a button to copy it. Both are there for the same reason: a secret typed blind is a
+secret that gets saved wrong, and a masked field cannot be copied from at all, since Chromium
+blocks it. A revealed field re-masks itself after fifteen seconds, because nobody remembers to
+click twice and an office has other people in it. Copying goes through the main process, the same
+path a terminal paste takes.
+
+**A saved secret can be read back.** Editing a host or credential shows `Unchanged` in the field,
+as it always did; clicking the eye fetches what is actually stored and shows it, so a password can
+be checked or copied rather than only overwritten. That is the one place a stored secret reaches
+the interface, and it is a pull rather than a push — nothing is sent because a form was opened,
+only because that field's eye was clicked. Main answers only for a credential or an inline
+credential this install actually has, so the channel cannot be used to sweep the keychain for
+entries NS3H did not write, and it stays silent when there is no keychain. Revealing fills the
+field, so what you are looking at is what saving would store.
+
+## Launch password
+
+**Off by default.** Turned on in Settings, NS3H asks for a password before it opens, and the main
+process refuses every channel but the launch screen's until it has one — so the gate is not
+something the interface is trusted to enforce.
+
+**Be clear about what it is.** It locks the app; it does not encrypt anything. Secrets stay where
+they were, in the OS keychain, protected by the OS. This stops a person sitting down at an
+unlocked machine and reading passwords out of the forms — which is the risk the reveal above
+introduces, and the reason this exists. It does not stop anyone who can read the keychain itself,
+and nothing NS3H could do would.
+
+The password is stored as an Argon2id hash, in its own file rather than in settings — `settings`
+is part of what "Export configuration" writes, and that export is documented as safe to email, so
+a hash in it would be an offline guessing target sitting in someone's inbox. A damaged or
+unreadable hash locks people out rather than letting them in.
+
+**Reset** on the launch screen is the only way past a forgotten one, and it is deliberately
+destructive: every saved credential and every stored secret goes, the launch password with it.
+Hosts survive — names, addresses, ports, folders, logging — and fall back to prompting at connect,
+as an unsaved host does. Session logs, known host keys and private key files are untouched; NS3H
+only ever recorded where a key was, never a copy. The screen says all of that before it will do
+anything, and asks you to type `RESET`.
+
+The consequence worth stating plainly: someone at your keyboard cannot **read** your saved
+passwords without the launch password, but they can **destroy** them. That is the standard cost of
+having a way back in at all.
 
 ## Terminal clipboard
 
@@ -105,12 +201,112 @@ file, and the message does not pretend otherwise.
 
 ## File transfer
 
-SFTP opens a channel **on the session that is already up**, so a transfer costs no second
-authentication and reuses the crypto that was negotiated for the shell. A dual pane shows the
-local filesystem beside the device, with per-file arrows and a progress row; large files report
-as they go rather than appearing to hang.
+**File transfer** is its own entry in the sidebar, and every open transfer is a tab on it — the
+same way every session is a pane in the dock. A tab is a live transfer: closing one disconnects
+it (a standalone connection) or lets it go with its session, and nothing is left running out of
+sight. Opening the screen with a session up and no tabs open starts that session's transfer, so
+the common path is still one click.
+
+That replaced a single dropdown, and the reason is worth recording: a second connection made from
+the pane stayed open and paid for in the main process, but the picker silently re-selected the
+session on the way back and offered no way to close the other. It was still in the list, but
+nothing about the screen said so. Tabs make every open transfer visible, selectable, and
+closable, and the tabs live in a store rather than in the pane — the pane is unmounted every time
+the user looks at anything else.
+
+Whatever is open in the main process is the authority: arriving at the screen squares the tabs
+against it, adopting any connection that has lost its tab and dropping any tab whose connection
+or session has gone.
+
+A transfer takes one of three sources:
+
+- **An open SSH session**, over **SFTP or SCP** — a toggle in the toolbar, because which one
+  works is the device's decision and not worth a reconnect to find out. Either rides the session
+  that is already up, so the transfer costs no second authentication and reuses the crypto
+  negotiated for the shell.
+- **SFTP or SCP on its own connection.** No CLI session needed — enter an address and
+  credentials and the pane connects for itself. This is the same `SshConnection` a terminal
+  session uses, opened with `shell: false`, so it gets the identical algorithm ladder,
+  known-hosts check and host-key modal; it simply never asks for a shell channel.
+- **SMB.** A Windows or Samba share, attached by `\\host\share`.
+
+**SCP exists here because SFTP often is not there.** A great deal of network gear runs an SCP
+server and no SFTP subsystem at all — on IOS, `ip scp server enable`, with no equivalent for
+SFTP — so the SFTP channel is refused and SCP is the only way in. When a session's SFTP channel
+is refused, the error carries a **Try SCP instead** button rather than making you work that out.
+
+ssh2 has no SCP, so the protocol is implemented in `src/main/files/scpProtocol.ts`: a control
+line, an acknowledgement byte, the file's bytes, another acknowledgement. It is split from the
+transport so it can be tested, and it is tested twice — against a scripted device in
+`tests/scp.test.ts`, and against OpenSSH's own `scp -f` and `scp -t` in
+`tests/scpInterop.test.ts`, which is the check that counts: the protocol is undocumented by
+design and the only authority on it is the implementation everything else talks to. The interop
+test skips itself where OpenSSH is not installed.
+
+**SCP cannot list a directory** — there is no listing operation in the protocol. NS3H runs `ls`
+to fill the remote pane, which works on anything POSIX and does not work on a switch, because a
+switch has no `ls`. That is reported as what it is, and the pane falls back to a path you type:
+uploads go to the directory in the box, and a full path plus **Fetch** pulls a file down. Which
+is how a firmware image gets moved anyway.
+
+Two more things SCP does differently, both deliberate:
+
+- **Paths are not quoted unless they need it.** A POSIX server runs the path through a shell;
+  `flash:c2960-image.bin` on IOS is handed to something that is not a shell and would take the
+  quotes literally. Paths made only of characters no shell treats specially go untouched, which
+  covers every network-device path; anything else is single-quoted.
+- **A refusal arrives late.** SCP's verdict on an upload comes after the last byte, so
+  `No space left` on a switch with a full flash appears once the whole image has crossed the
+  wire. Nothing can be done about that — it is the protocol — but it is worth expecting.
+
+**Files can be dragged in from the desktop.** Dropping them on the remote pane uploads them
+to whatever directory it is showing — including the typed path an unbrowsable SCP device falls
+back to. Several at once go one after another, and a folder among them fails on its own without
+taking the rest down with it. Electron 32 removed `File.path`, so the path behind each drop is
+resolved with `webUtils` in the preload, which is the only place a sandboxed renderer can reach
+it; a drop carrying no file from disk — dragged text, a link, an image from a web page — says so
+rather than failing quietly. Dropping anywhere else in the window is cancelled outright, because
+the default there is for Chromium to navigate to the file and replace the running app with it.
+
+A standalone target is **not saved**, the way Quick connect is not: it is used for that
+connection and forgotten. A saved credential can be picked instead of typing a password — the
+secret is resolved in main, so the renderer neither sends nor receives one.
 
 Telnet and serial sessions say so rather than offering a transfer they cannot carry.
+
+**What a standalone SFTP connection cannot do:** answer a multi-prompt challenge. A session
+puts an authentication prompt in its terminal; a standalone connection has no terminal and no
+tab to anchor one to, so the password from the form answers the first round and anything beyond
+that fails with a message rather than waiting on a modal that cannot appear. A device demanding
+a second factor has to be reached by opening an SSH session and transferring over it.
+
+**SMB is SMB2 only.** `@tryjsky/v9u-smb2` is a pure-JS client — no native module, so it packages
+on all three platforms — and it speaks SMB2. A host offering only SMB1 (an old NAS, or a box
+with SMB2 switched off) reports `STATUS_NOT_SUPPORTED`, which NS3H translates into that
+sentence rather than the status code. The other codes worth naming — a bad password, a missing
+share, a share the account cannot reach — are translated too.
+
+**A device with no SFTP subsystem is the normal case, not a fault.** This applies to a session's
+SFTP channel; a standalone SFTP connection to the same device fails the same way, for the same
+reason. Most switches and routers
+run an SSH server without one, and ssh2 reports that as a bare `Channel open failure:` with no
+reason attached. NS3H names the device, keeps whatever reason it did give, and says what to check
+(`ip ssh server sftp` on IOS) — and drops the ssh2 stack, which pointed at protocol internals for
+something the device did deliberately. The channel is opened once per session and shared: the
+home lookup and the first listing arrive together, and one refusal is reported once, not twice.
+
+## Startup output
+
+`npm run dev` prints some lines that are worth knowing the origin of:
+
+- **`Fontconfig warning: ... invalid attribute 'xsi:nil'`** — not NS3H, and not Electron either.
+  These come from the system's own `/etc/fonts/conf.d` files being parsed by Chromium's fontconfig;
+  recent Fedora ships configs that its fontconfig build then complains about. They are harmless,
+  there is nothing in this repository that produces or can suppress them, and they do not appear
+  in a packaged build launched from a desktop entry.
+- **`NS3H: restored DH groups this runtime is missing — modp1, modp2`** — ours, and informational.
+  It confirms the BoringSSL shim below is active, which is what makes `diffie-hellman-group1-sha1`
+  work against pre-2010 gear. Its absence on some other runtime would mean the groups were native.
 
 ## Panes and terminal ownership
 
@@ -245,7 +441,14 @@ gear, the only key exchange on offer — so those devices failed both rungs of t
 `src/main/ssh/legacyDh.ts` restores the missing groups by handing BoringSSL the standard MODP
 primes explicitly, which it accepts. `src/main/ssh/ssh2.ts` is the only place ssh2 may be loaded
 from, because the shim has to be installed *before* ssh2 captures the crypto function at require
-time. The primes are checked byte-for-byte against OpenSSL's own copies in the unit tests.
+time. The shim runs in that module's body; the ssh2 require itself is deferred to the first SSH
+operation, which keeps ~60 ms of native-binding load off the path to the first window without
+changing the ordering the shim depends on. The primes are checked byte-for-byte against OpenSSL's
+own copies in the unit tests.
+
+`serialport` and `@node-rs/argon2` are loaded the same way — on first use, not at startup. Both
+are native modules, neither is needed to open a window, and between the three roughly 90 ms of
+module loading no longer happens before the app can paint.
 
 Probed under Electron 33 / BoringSSL: `modp1` and `modp2` are missing and now shimmed; `modp5`,
 `modp14`–`modp18`, `3des-cbc`, all AES CBC/CTR modes, `blowfish-cbc`, `rc4`, `hmac-sha1` and

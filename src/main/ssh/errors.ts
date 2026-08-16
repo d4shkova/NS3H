@@ -57,6 +57,30 @@ export function classifySshError(error: unknown, handshakeCompleted: boolean): S
   return { kind: 'other', message };
 }
 
+/**
+ * A device that refuses the SFTP channel is the normal case, not a fault: most switches
+ * and routers run an SSH server with no SFTP subsystem at all, and ssh2 reports that as
+ * a bare "Channel open failure:" with no reason text. Say what it means, and drop the
+ * ssh2 stack — it points at protocol internals and reads like a crash in the log for
+ * something the device did on purpose.
+ */
+export function explainSftpRefusal(error: unknown, address: string): Error {
+  const raw = ((error as ErrorLike)?.message ?? '').trim();
+  // "(SSH) Channel open failure: <reason>" — the prefix says nothing the sentence below
+  // does not, and the reason is often empty, so only the reason is kept.
+  const match = /channel open failure:?\s*(.*)$/i.exec(raw);
+  const reason = (match ? match[1] : raw.replace(/^\(SSH\)\s*/, ''))
+    .trim()
+    .replace(/[.:]$/, '');
+  const explained = new Error(
+    `${address} refused an SFTP channel${reason ? ` (${reason})` : ''}. ` +
+      'Most switches and routers run SSH without an SFTP subsystem — check whether the ' +
+      'device has one enabled (on IOS, `ip ssh server sftp`), or move the file another way.',
+  );
+  explained.stack = `${explained.name}: ${explained.message}`;
+  return explained;
+}
+
 /** Turn a network failure into wording that names the likely cause. */
 export function explainNetworkError(error: unknown, address: string, port: number): string {
   const code = (error as ErrorLike)?.code ?? '';

@@ -1,5 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import type {
+  SecretKind,
   ConfigSnapshot,
   Credential,
   Folder,
@@ -111,6 +112,24 @@ export class ConfigService {
     return this.snapshot();
   }
 
+  /**
+   * Forgets every credential, and every secret behind one, while keeping the hosts.
+   *
+   * This is what the launch screen's reset does. Hosts survive with their addresses,
+   * ports, folders and logging intact; what goes is anything that could authenticate.
+   * Their credential links go with it — a host pointing at a credential that no longer
+   * exists would fail at connect rather than prompting, which is the wrong answer.
+   */
+  async resetCredentials(): Promise<ConfigSnapshot> {
+    await this.credentials.write({ version: 1, credentials: [] });
+    await this.hosts.update((file) => ({
+      ...file,
+      hosts: file.hosts.map((host) => ({ ...host, credentialId: null, inlineCredential: null })),
+    }));
+    await this.secrets.clearAll();
+    return this.snapshot();
+  }
+
   async saveSettings(patch: Partial<Settings>): Promise<ConfigSnapshot> {
     await this.settings.update((current) => applySettings(current, patch));
     return this.snapshot();
@@ -151,6 +170,54 @@ export class ConfigService {
         auth: await this.resolveAuth(host),
       },
     };
+  }
+
+  /**
+   * Hands one stored secret back for the user to read.
+   *
+   * This is the single exception to "secrets are resolved in main and never reach the
+   * interface", and it is deliberate: a password you cannot read is a password you cannot
+   * check, and the alternative is people keeping a second copy somewhere worse. It is a
+   * pull, not a push — nothing is sent until the eye is clicked on that field.
+   *
+   * Only an owner this install actually has is answered, so the channel cannot be used to
+   * sweep the vault for keys NS3H did not write.
+   */
+  async revealSecret(ownerId: string, kind: SecretKind): Promise<string | null> {
+    const known =
+      (await this.credentials.read()).credentials.some((entry) => entry.id === ownerId) ||
+      (await this.hosts.read()).hosts.some(
+        (host) => host.id === ownerId && host.inlineCredential !== null,
+      );
+    if (!known) return null;
+    return this.secrets.get(ownerId, kind);
+  }
+
+  /**
+   * A saved credential resolved for a standalone transfer connection (§ phase 12), which
+   * has no host record behind it. Secrets are read here, in main, exactly as they are for
+   * a session — the renderer asks by id and never sees one.
+   */
+  async resolveCredential(credentialId: string): Promise<SshAuth | null> {
+    const credential = (await this.credentials.read()).credentials.find(
+      (entry) => entry.id === credentialId,
+    );
+    if (!credential) return null;
+
+    if (credential.type === 'key' && credential.keyPath) {
+      const passphrase = await this.secrets.get(credential.id, 'passphrase');
+      return {
+        kind: 'key',
+        username: credential.username,
+        keyPath: credential.keyPath,
+        ...(passphrase ? { passphrase } : {}),
+      };
+    }
+
+    const password = await this.secrets.get(credential.id, 'password');
+    return password
+      ? { kind: 'password', username: credential.username, password }
+      : { kind: 'prompt', username: credential.username };
   }
 
   private async resolveAuth(host: Host): Promise<SshAuth> {

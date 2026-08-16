@@ -9,6 +9,7 @@ const SECTIONS: { key: SidebarSection; label: string; icon: string }[] = [
   { key: 'hosts', label: 'Hosts', icon: '▤' },
   { key: 'credentials', label: 'Credentials', icon: '⚿' },
   { key: 'logs', label: 'Logs', icon: '≡' },
+  { key: 'transfer', label: 'File transfer', icon: '⇅' },
   { key: 'quick', label: 'Quick connect', icon: '⚡' },
 ];
 
@@ -48,7 +49,8 @@ export function Sidebar(): JSX.Element {
 
         {section === 'home' && (
           <p className={styles.placeholder}>
-            Everything the app does, one click away. Sessions keep running while you are here.
+            Everything the app does, one click away. With sessions open this returns to
+            them; they keep running whatever else is on screen.
           </p>
         )}
         {section === 'hosts' && <HostTree />}
@@ -57,6 +59,13 @@ export function Sidebar(): JSX.Element {
           <p className={styles.placeholder}>
             One folder per device. Open a session to read it here — virtualised and
             searchable, however large it is.
+          </p>
+        )}
+        {section === 'transfer' && (
+          <p className={styles.placeholder}>
+            SFTP, SCP, or SMB. An open SSH session can be used as-is — over either SFTP
+            or SCP, since gear with no SFTP subsystem usually has an SCP server. Anything
+            else is a connection the pane makes itself, with nothing saved.
           </p>
         )}
         {section === 'quick' && (

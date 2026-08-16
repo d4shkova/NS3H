@@ -246,3 +246,222 @@
 .primary:hover {
   background: var(--accent-hover);
 }
+
+/* The connect form takes the whole pane when there is nothing to browse yet. */
+.formHost {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.formFoot {
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 0 24px 36px;
+  color: var(--text-tertiary);
+  line-height: 1.55;
+  font-size: 12.5px;
+}
+
+/* SFTP / SCP toggle for a session, which can carry either. */
+.modes {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  flex: none;
+}
+
+.mode {
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  color: var(--text-tertiary);
+  padding: 4px 10px;
+}
+
+.mode:hover {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.modeOn {
+  background: var(--accent);
+  color: #fff;
+}
+
+.errorAction {
+  margin-left: 12px;
+  color: var(--text-primary);
+  border: 1px solid var(--status-error);
+  border-radius: var(--radius-sm);
+  padding: 2px 9px;
+  font-size: 11.5px;
+}
+
+.errorAction:hover {
+  background: var(--status-error);
+  color: #fff;
+}
+
+/* Shown instead of a listing when the remote side cannot be enumerated. */
+.manual {
+  border-bottom: 1px solid var(--border);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.manualNote {
+  color: var(--text-tertiary);
+  font-size: 11.5px;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.manualNote code {
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+}
+
+.manualRow {
+  display: flex;
+  gap: 8px;
+}
+
+.manualRow input {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  padding: 5px 9px;
+}
+
+.manualRow button,
+.manualFetch {
+  flex: none;
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 5px 12px;
+  font-size: 12px;
+}
+
+.manualRow button:hover,
+.manualFetch:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  border-color: var(--border-focus);
+}
+
+.manualFetch {
+  align-self: flex-start;
+  font-family: var(--font-mono);
+}
+
+.manualFetch:disabled {
+  color: var(--text-tertiary);
+  cursor: not-allowed;
+}
+
+/* The remote pane while a file from outside the app is over it. */
+.dropping {
+  outline: 2px dashed var(--accent);
+  outline-offset: -2px;
+  background: var(--accent-muted);
+}
+
+.dropHint {
+  flex: none;
+  padding: 7px 12px;
+  font-size: 12px;
+  color: var(--text-primary);
+  background: var(--accent-muted);
+  border-bottom: 1px solid var(--accent);
+  /* The pointer is mid-drag over this; it must not become the drag target itself. */
+  pointer-events: none;
+}
+
+.dropHint code {
+  font-family: var(--font-mono);
+}
+
+/* One tab per open transfer, in the toolbar. */
+.tabs {
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+}
+
+.tab {
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-base);
+  max-width: 260px;
+  flex: none;
+}
+
+.tabOn {
+  border-color: var(--accent);
+  background: var(--accent-muted);
+}
+
+.tabName {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  padding: 5px 4px 5px 9px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tabOn .tabName {
+  color: var(--text-primary);
+}
+
+.tabProtocol {
+  flex: none;
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--text-tertiary);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 0 4px;
+}
+
+.tabOn .tabProtocol {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.tabClose {
+  flex: none;
+  color: var(--text-tertiary);
+  padding: 4px 8px 4px 5px;
+  font-size: 11px;
+}
+
+.tabClose:hover {
+  color: var(--status-error);
+}
+
+.tabAdd {
+  padding: 4px 11px;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.tabAdd:hover {
+  border-color: var(--accent);
+  color: var(--text-primary);
+}

@@ -1,5 +1,4 @@
 import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
-import { hashRaw } from '@node-rs/argon2';
 import type { CredentialsFile, HostsFile, Settings } from '@shared/config.js';
 
 /** §7 — Argon2id, m=64MB, t=3, p=4. */
@@ -52,7 +51,12 @@ export interface EncryptedBundle {
   ciphertext: string;
 }
 
+/**
+ * Argon2 is a native module pulled in only by export and import, which most launches
+ * never reach — importing it here keeps its load off the startup path.
+ */
 async function deriveKey(passphrase: string, salt: Buffer): Promise<Buffer> {
+  const { hashRaw } = await import('@node-rs/argon2');
   return hashRaw(passphrase, { ...ARGON, salt });
 }
 
@@ -105,6 +109,7 @@ export async function decryptBundle(
 
   // The header carries the parameters the file was written with, so a future change
   // to the defaults cannot make an old backup undecryptable.
+  const { hashRaw } = await import('@node-rs/argon2');
   const key = await hashRaw(passphrase, {
     algorithm: ARGON.algorithm,
     memoryCost: bundle.kdf.memoryCost,

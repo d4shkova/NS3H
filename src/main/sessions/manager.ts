@@ -16,7 +16,9 @@ import type { HostKeyIdentity } from '../ssh/fingerprint.js';
 import { KnownHostsStore, verifyHostKey } from '../store/knownHosts.js';
 import type { LogService, SessionLogRequest } from '../logging/index.js';
 import { SftpSession } from '../ssh/sftp.js';
-import type { RemoteEntry, TransferProgress } from '@shared/transfer.js';
+import type { FileTransport } from '../files/transport.js';
+import { ScpTransport } from '../files/scp.js';
+import type { SessionTransferMode } from '@shared/transfer.js';
 import type { SessionLogWriter } from '../logging/writer.js';
 
 export function newId(prefix: string): string {
@@ -34,8 +36,9 @@ interface Transport {
 interface Session {
   info: SessionInfo;
   connection: Transport;
-  /** Opened on demand for file transfer; SSH sessions only. */
-  sftp?: SftpSession;
+  /** Opened on demand for file transfer; SSH sessions only. Held as the in-flight
+   * promise so concurrent requests share one channel. */
+  sftp?: Promise<SftpSession>;
   /** Null until the log opens, or for good when logging is off. */
   log: SessionLogWriter | null;
   /**
@@ -250,43 +253,73 @@ export class SessionManager {
   }
 
   /** SFTP runs over the session that is already authenticated (§ phase 9). */
-  private async sftpFor(sessionId: string): Promise<SftpSession> {
+  private sftpFor(sessionId: string): Promise<SftpSession> {
+    const session = this.sessions.get(sessionId);
+    if (!session) return Promise.reject(new Error('That session is no longer open.'));
+    if (session.info.protocol !== 'ssh') {
+      return Promise.reject(
+        new Error('File transfer needs an SSH session — telnet and serial cannot carry it.'),
+      );
+    }
+    // The in-flight promise is what is cached, not just the result: opening the pane
+    // fires a home lookup and a listing together, and awaiting the result would let
+    // both open their own channel — one of which is then leaked until the session ends.
+    if (session.sftp) return session.sftp;
+
+    const connection = session.connection as SshConnection;
+    const opening = connection.openSftp().then((wrapper) => {
+      // A device that drops the subsystem later must not leave a dead handle cached.
+      const forget = () => {
+        if (session.sftp === opening) session.sftp = undefined;
+      };
+      wrapper.on('close', forget);
+      wrapper.on('end', forget);
+      return new SftpSession(wrapper);
+    });
+
+    session.sftp = opening;
+    opening.catch(() => {
+      // A refusal is retried on the next request rather than remembered forever: the
+      // subsystem can be enabled on the device without reconnecting the session.
+      if (session.sftp === opening) session.sftp = undefined;
+    });
+    return opening;
+  }
+
+  /**
+   * The session's own transfer channel behind the same interface a standalone connection
+   * implements, so the transfer pane and its IPC handlers do not care which they have.
+   *
+   * `scp` is the way in for gear that runs an SCP server and no SFTP subsystem — very
+   * common on switches and routers, where the SFTP channel is simply refused. Both modes
+   * ride the session that is already authenticated; `close` is a no-op either way,
+   * because the channel belongs to the session and goes when it does.
+   */
+  async transport(sessionId: string, mode: SessionTransferMode = 'sftp'): Promise<FileTransport> {
+    if (mode === 'scp') return this.scpFor(sessionId);
+
+    const sftp = await this.sftpFor(sessionId);
+    return {
+      home: () => sftp.realpath('.'),
+      list: (path) => sftp.list(path),
+      download: (remotePath, localDirectory, onProgress) =>
+        sftp.download(remotePath, localDirectory, onProgress),
+      upload: (localPath, remoteDirectory, onProgress) =>
+        sftp.upload(localPath, remoteDirectory, onProgress),
+      close: () => {},
+    };
+  }
+
+  /** SCP over the open session. Each transfer is its own exec channel, so there is
+   * nothing to cache and nothing to leak. */
+  private scpFor(sessionId: string): FileTransport {
     const session = this.sessions.get(sessionId);
     if (!session) throw new Error('That session is no longer open.');
     if (session.info.protocol !== 'ssh') {
       throw new Error('File transfer needs an SSH session — telnet and serial cannot carry it.');
     }
-    if (session.sftp) return session.sftp;
-
     const connection = session.connection as SshConnection;
-    session.sftp = new SftpSession(await connection.openSftp());
-    return session.sftp;
-  }
-
-  async remoteHome(sessionId: string): Promise<string> {
-    return (await this.sftpFor(sessionId)).realpath('.');
-  }
-
-  async remoteList(sessionId: string, path: string): Promise<RemoteEntry[]> {
-    return (await this.sftpFor(sessionId)).list(path);
-  }
-
-  async download(
-    sessionId: string,
-    remotePath: string,
-    localDirectory: string,
-    onProgress: (progress: TransferProgress) => void,
-  ): Promise<string> {
-    return (await this.sftpFor(sessionId)).download(remotePath, localDirectory, onProgress);
-  }
-
-  async upload(
-    sessionId: string,
-    localPath: string,
-    remoteDirectory: string,
-    onProgress: (progress: TransferProgress) => void,
-  ): Promise<string> {
-    return (await this.sftpFor(sessionId)).upload(localPath, remoteDirectory, onProgress);
+    return new ScpTransport((command) => connection.exec(command));
   }
 
   /** Serial only — the toolbar button is hidden for other protocols. */
@@ -373,7 +406,9 @@ export class SessionManager {
     const session = this.sessions.get(sessionId);
     if (!session) return;
     this.sessions.delete(sessionId);
-    session.sftp?.end();
+    // A channel still being opened is closed as soon as it arrives; a rejected open
+    // has nothing to close, and its error has already been reported to the caller.
+    void session.sftp?.then((sftp) => sftp.end()).catch(() => {});
     await session.log?.close();
   }
 
@@ -391,9 +426,14 @@ export class SessionManager {
     pending.resolve(responses);
   }
 
-  private async resolveHostKey(
+  /**
+   * Public because a standalone transfer connection (§ phase 12) has no session but must
+   * go through the same known-hosts check and the same modal — a key is a key, whether a
+   * terminal or a file pane is behind it.
+   */
+  async resolveHostKey(
     sessionId: string,
-    target: SshTarget,
+    target: { address: string; port: number },
     identity: HostKeyIdentity,
   ): Promise<boolean> {
     const file = await this.knownHosts.read();

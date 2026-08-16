@@ -8,6 +8,7 @@ import type {
 } from '@shared/types.js';
 import type { Host, SerialConfig } from '@shared/config.js';
 import { useConfig } from './config.js';
+import { useTransfers } from './transfers.js';
 
 export interface SessionTab {
   id: string;
@@ -23,7 +24,13 @@ export interface SessionTab {
   logPath?: string;
 }
 
-export type SidebarSection = 'home' | 'hosts' | 'credentials' | 'logs' | 'quick';
+export type SidebarSection =
+  | 'home'
+  | 'hosts'
+  | 'credentials'
+  | 'logs'
+  | 'transfer'
+  | 'quick';
 
 interface SessionState {
   tabs: SessionTab[];
@@ -172,6 +179,9 @@ export const useSessions = create<SessionState>((set, get) => ({
 
   closeTab: (id) => {
     void window.ns3h.session.close(id);
+    // A transfer riding on this session goes with it: the channel is the session's, and
+    // a tab pointing at a closed session is a dead end.
+    useTransfers.getState().close(id);
     const { tabs, activeId } = get();
     const remaining = tabs.filter((tab) => tab.id !== id);
     set({

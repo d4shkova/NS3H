@@ -11,6 +11,11 @@ import {
 } from '@shared/config.js';
 import type { CredentialSecrets } from '@shared/api.js';
 
+/** Open unless the user has folded it — the shape the setting is stored in. */
+export function folderIsOpen(collapsed: string[], folderId: string): boolean {
+  return !collapsed.includes(folderId);
+}
+
 /** What the main pane is showing when no session tab is active. */
 export type MainView =
   /** The landing screen: a card per thing the app does. */
@@ -32,12 +37,12 @@ interface ConfigState {
   loaded: boolean;
   error: string | null;
   view: MainView;
-  expandedFolders: Record<string, boolean>;
   search: string;
 
   load: () => Promise<void>;
   setView: (view: MainView) => void;
   setSearch: (search: string) => void;
+  /** Folds a host folder, and remembers it — the state outlives the launch. */
   toggleFolder: (folderId: string) => void;
   clearError: () => void;
 
@@ -76,7 +81,6 @@ export const useConfig = create<ConfigState>((set, get) => {
     loaded: false,
     error: null,
     view: { kind: 'home' },
-    expandedFolders: {},
     search: '',
 
     load: async () => {
@@ -88,13 +92,22 @@ export const useConfig = create<ConfigState>((set, get) => {
     setSearch: (search) => set({ search }),
     clearError: () => set({ error: null }),
 
-    toggleFolder: (folderId) =>
+    toggleFolder: (folderId) => {
+      const collapsed = new Set(get().snapshot.settings.collapsedFolders);
+      if (!collapsed.delete(folderId)) collapsed.add(folderId);
+      const next = [...collapsed];
+
+      // Applied here before it is written, for two reasons: the fold should follow the
+      // click rather than a file round trip, and a second click landing before the first
+      // write returns would otherwise compute its answer from stale state and undo it.
       set((state) => ({
-        expandedFolders: {
-          ...state.expandedFolders,
-          [folderId]: !(state.expandedFolders[folderId] ?? true),
-        },
-      })),
+        snapshot: { ...state.snapshot, settings: { ...state.snapshot.settings, collapsedFolders: next } },
+      }));
+
+      void window.ns3h.config
+        .saveSettings({ collapsedFolders: next })
+        .catch((cause: Error) => set({ error: cause.message }));
+    },
 
     saveHost: async (host, secrets) => {
       await apply(() => window.ns3h.config.saveHost(host, secrets));

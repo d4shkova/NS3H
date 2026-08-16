@@ -1,4 +1,5 @@
-import { SerialPort } from 'serialport';
+import type { SerialPort } from 'serialport';
+import { loadSerialPort } from './load.js';
 import type { SerialConfig } from '@shared/config.js';
 import type { NoticeLevel } from '@shared/types.js';
 
@@ -22,8 +23,25 @@ export class SerialConnection {
     private readonly callbacks: SerialCallbacks,
   ) {}
 
+  /** The native module is loaded here rather than at startup, so `open` is async
+   * internally; callers stay fire-and-forget, exactly as before. */
   open(): void {
-    const port = new SerialPort(
+    void loadSerialPort().then(
+      (SerialPortClass) => {
+        // A session closed while the module was still loading must not open the port.
+        if (!this.disposed) this.start(SerialPortClass);
+      },
+      (error: unknown) => {
+        this.callbacks.onError(
+          `Serial support could not be loaded: ${(error as Error).message}. ` +
+            'This build may be missing its native serialport binding.',
+        );
+      },
+    );
+  }
+
+  private start(SerialPortClass: typeof SerialPort): void {
+    const port = new SerialPortClass(
       {
         path: this.config.path,
         baudRate: this.config.baudRate,

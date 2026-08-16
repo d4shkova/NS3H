@@ -58,12 +58,12 @@ export interface ThemeDefinition {
   terminal: TerminalPalette;
 }
 
-export const DEFAULT_THEME_ID = 'ns3h-dark';
+export const DEFAULT_THEME_ID = 'midnatt';
 
 export const THEMES: ThemeDefinition[] = [
   {
-    id: 'ns3h-dark',
-    name: 'NS3H Dark',
+    id: 'midnatt',
+    name: 'Midnatt',
     mode: 'dark',
     tokens: {
       bgBase: '#0A0A0B',
@@ -106,8 +106,8 @@ export const THEMES: ThemeDefinition[] = [
     },
   },
   {
-    id: 'ns3h-light',
-    name: 'NS3H Light',
+    id: 'dagslys',
+    name: 'Dagslys',
     mode: 'light',
     tokens: {
       bgBase: '#FFFFFF',
@@ -150,8 +150,8 @@ export const THEMES: ThemeDefinition[] = [
     },
   },
   {
-    id: 'kanagawa-wave',
-    name: 'Kanagawa Wave',
+    id: 'skumring',
+    name: 'Skumring',
     mode: 'dark',
     tokens: {
       bgBase: '#1F1F28',
@@ -194,8 +194,8 @@ export const THEMES: ThemeDefinition[] = [
     },
   },
   {
-    id: 'kanagawa-dragon',
-    name: 'Kanagawa Dragon',
+    id: 'skifer',
+    name: 'Skifer',
     mode: 'dark',
     tokens: {
       bgBase: '#181616',
@@ -238,8 +238,8 @@ export const THEMES: ThemeDefinition[] = [
     },
   },
   {
-    id: 'kanagawa-lotus',
-    name: 'Kanagawa Lotus',
+    id: 'pergament',
+    name: 'Pergament',
     mode: 'light',
     tokens: {
       bgBase: '#F2ECBC',
@@ -282,8 +282,8 @@ export const THEMES: ThemeDefinition[] = [
     },
   },
   {
-    id: 'everforest-dark',
-    name: 'Everforest Dark',
+    id: 'furu',
+    name: 'Furu',
     mode: 'dark',
     tokens: {
       bgBase: '#2D353B',
@@ -326,8 +326,8 @@ export const THEMES: ThemeDefinition[] = [
     },
   },
   {
-    id: 'everforest-light',
-    name: 'Everforest Light',
+    id: 'bjork',
+    name: 'Bjørk',
     mode: 'light',
     tokens: {
       bgBase: '#FDF6E3',
@@ -370,8 +370,8 @@ export const THEMES: ThemeDefinition[] = [
     },
   },
   {
-    id: 'night-owl',
-    name: 'Night Owl',
+    id: 'morketid',
+    name: 'Mørketid',
     mode: 'dark',
     tokens: {
       bgBase: '#011627',
@@ -414,8 +414,8 @@ export const THEMES: ThemeDefinition[] = [
     },
   },
   {
-    id: 'light-owl',
-    name: 'Light Owl',
+    id: 'lysning',
+    name: 'Lysning',
     mode: 'light',
     tokens: {
       bgBase: '#FBFBFB',
@@ -458,8 +458,8 @@ export const THEMES: ThemeDefinition[] = [
     },
   },
   {
-    id: 'flexoki-dark',
-    name: 'Flexoki Dark',
+    id: 'tjare',
+    name: 'Tjære',
     mode: 'dark',
     tokens: {
       bgBase: '#100F0F',
@@ -502,8 +502,8 @@ export const THEMES: ThemeDefinition[] = [
     },
   },
   {
-    id: 'flexoki-light',
-    name: 'Flexoki Light',
+    id: 'lin',
+    name: 'Lin',
     mode: 'light',
     tokens: {
       bgBase: '#FFFCF0',
@@ -546,8 +546,8 @@ export const THEMES: ThemeDefinition[] = [
     },
   },
   {
-    id: 'hacker-green',
-    name: 'Hacker Green',
+    id: 'olivin',
+    name: 'Olivin',
     mode: 'dark',
     tokens: {
       bgBase: '#000000',
@@ -590,8 +590,8 @@ export const THEMES: ThemeDefinition[] = [
     },
   },
   {
-    id: 'hacker-blue',
-    name: 'Hacker Blue',
+    id: 'blais',
+    name: 'Blåis',
     mode: 'dark',
     tokens: {
       bgBase: '#00121F',
@@ -634,8 +634,8 @@ export const THEMES: ThemeDefinition[] = [
     },
   },
   {
-    id: 'hacker-red',
-    name: 'Hacker Red',
+    id: 'falurod',
+    name: 'Falurød',
     mode: 'dark',
     tokens: {
       bgBase: '#120000',
@@ -677,10 +677,476 @@ export const THEMES: ThemeDefinition[] = [
       brightWhite: '#FFB3B3',
     },
   },
+  /**
+   * Røros — the copper-mining town: whitewashed timber, weathered wood, and the burnt
+   * orange of the ore that built it. The only light theme in this set.
+   */
+  {
+    id: 'roros',
+    name: 'Røros',
+    mode: 'light',
+    tokens: {
+      bgBase: '#FFFCF2',
+      bgPanel: '#F5F1E6',
+      bgElevated: '#FFFFFF',
+      bgHover: '#EDE7DA',
+      border: '#CCC5B9',
+      borderFocus: '#B3AA9C',
+      textPrimary: '#252422',
+      textSecondary: '#403D39',
+      textTertiary: '#8A8378',
+      accent: '#EB5E28',
+      accentHover: '#D24E1C',
+      accentMuted: 'rgba(235, 94, 40, 0.14)',
+      statusOk: '#4C7A34',
+      statusWarn: '#B8791A',
+      statusError: '#C43D1B',
+    },
+    terminal: {
+      background: '#FFFCF2',
+      foreground: '#252422',
+      cursor: '#EB5E28',
+      selectionBackground: 'rgba(235, 94, 40, 0.24)',
+      black: '#252422',
+      brightBlack: '#403D39',
+      red: '#C43D1B',
+      brightRed: '#EB5E28',
+      green: '#4C7A34',
+      brightGreen: '#5F9642',
+      yellow: '#B8791A',
+      brightYellow: '#D99423',
+      blue: '#2E6F8E',
+      brightBlue: '#3D8CB0',
+      magenta: '#8C4A6B',
+      brightMagenta: '#A85C82',
+      cyan: '#2F7D74',
+      brightCyan: '#3E9C91',
+      white: '#CCC5B9',
+      brightWhite: '#FFFCF2',
+    },
+  },
+  /**
+   * Reinmose — reindeer lichen on the vidde: grey stone underfoot, pale green growing
+   * over it. Quiet, low-contrast chrome with the greens kept for what matters.
+   */
+  {
+    id: 'reinmose',
+    name: 'Reinmose',
+    mode: 'dark',
+    tokens: {
+      bgBase: '#1A1D1B',
+      bgPanel: '#222624',
+      bgElevated: '#2B302D',
+      bgHover: '#343A36',
+      border: '#3E4541',
+      borderFocus: '#656565',
+      textPrimary: '#D1FFD7',
+      textSecondary: '#A6D3A0',
+      textTertiary: '#808782',
+      accent: '#B3FFB3',
+      accentHover: '#C9FFC9',
+      accentMuted: 'rgba(179, 255, 179, 0.14)',
+      statusOk: '#A6D3A0',
+      statusWarn: '#D9C77A',
+      statusError: '#E08585',
+    },
+    terminal: {
+      background: '#1A1D1B',
+      foreground: '#D1FFD7',
+      cursor: '#B3FFB3',
+      selectionBackground: 'rgba(179, 255, 179, 0.28)',
+      black: '#222624',
+      brightBlack: '#656565',
+      red: '#C97B7B',
+      brightRed: '#E08585',
+      green: '#A6D3A0',
+      brightGreen: '#B3FFB3',
+      yellow: '#C4B87A',
+      brightYellow: '#D9C77A',
+      blue: '#7A9FB5',
+      brightBlue: '#92B8CE',
+      magenta: '#A896B0',
+      brightMagenta: '#C0AEC8',
+      cyan: '#8FC7BE',
+      brightCyan: '#A6E0D6',
+      white: '#808782',
+      brightWhite: '#D1FFD7',
+    },
+  },
+  /**
+   * Nordlys — the aurora: a deep winter sky with the whole green-to-cyan sweep of it
+   * overhead. The palette runs cold and gets brighter as it goes.
+   */
+  {
+    id: 'nordlys',
+    name: 'Nordlys',
+    mode: 'dark',
+    tokens: {
+      bgBase: '#0B1418',
+      bgPanel: '#101D22',
+      bgElevated: '#16272D',
+      bgHover: '#1D323A',
+      border: '#223D45',
+      borderFocus: '#2F5A63',
+      textPrimary: '#D8F4F2',
+      textSecondary: '#7FC8C4',
+      textTertiary: '#4F8A8C',
+      accent: '#2BD9FE',
+      accentHover: '#6BE6FF',
+      accentMuted: 'rgba(43, 217, 254, 0.14)',
+      statusOk: '#52AA5E',
+      statusWarn: '#D9B14A',
+      statusError: '#E06A6A',
+    },
+    terminal: {
+      background: '#0B1418',
+      foreground: '#D8F4F2',
+      cursor: '#2BD9FE',
+      selectionBackground: 'rgba(43, 217, 254, 0.28)',
+      black: '#101D22',
+      brightBlack: '#4F8A8C',
+      red: '#C95F5F',
+      brightRed: '#E06A6A',
+      green: '#388659',
+      brightGreen: '#52AA5E',
+      yellow: '#BF9B3F',
+      brightYellow: '#D9B14A',
+      blue: '#3AAED8',
+      brightBlue: '#5FC4E8',
+      magenta: '#7E8CD9',
+      brightMagenta: '#9AA6F0',
+      cyan: '#52AA8A',
+      brightCyan: '#2BD9FE',
+      white: '#A9CFCE',
+      brightWhite: '#EAFBFA',
+    },
+  },
+  /**
+   * Rosemaling — the folk painting on a dowry chest: a dark wine ground with flowers
+   * laid over it in coral, leaf green and pale blue. The loudest theme here, on purpose.
+   */
+  {
+    id: 'rosemaling',
+    name: 'Rosemaling',
+    mode: 'dark',
+    tokens: {
+      bgBase: '#1B0F14',
+      bgPanel: '#26161C',
+      bgElevated: '#331E26',
+      bgHover: '#422732',
+      border: '#4E2E3A',
+      borderFocus: '#773344',
+      textPrimary: '#F5E6E2',
+      textSecondary: '#E3B5A4',
+      textTertiary: '#A87F76',
+      accent: '#E85F5C',
+      accentHover: '#F27E7B',
+      accentMuted: 'rgba(232, 95, 92, 0.14)',
+      statusOk: '#ACF39D',
+      statusWarn: '#E8C15C',
+      statusError: '#E85F5C',
+    },
+    terminal: {
+      background: '#1B0F14',
+      foreground: '#F5E6E2',
+      cursor: '#E85F5C',
+      selectionBackground: 'rgba(232, 95, 92, 0.28)',
+      black: '#26161C',
+      brightBlack: '#A87F76',
+      red: '#E85F5C',
+      brightRed: '#F27E7B',
+      green: '#8CD97F',
+      brightGreen: '#ACF39D',
+      yellow: '#D4A85C',
+      brightYellow: '#E8C15C',
+      blue: '#7FC5D9',
+      brightBlue: '#9CD9E8',
+      magenta: '#B8657F',
+      brightMagenta: '#D98BA3',
+      cyan: '#7CD9D4',
+      brightCyan: '#9CFFFA',
+      white: '#E3B5A4',
+      brightWhite: '#F5E6E2',
+    },
+  },
+  /**
+   * Glør — embers in the hearth once the flame has gone: near-black, and everything
+   * still glowing sits on the same red through salmon run.
+   */
+  {
+    id: 'glor',
+    name: 'Glør',
+    mode: 'dark',
+    tokens: {
+      bgBase: '#090809',
+      bgPanel: '#121011',
+      bgElevated: '#1A1617',
+      bgHover: '#241D1E',
+      border: '#2C2223',
+      borderFocus: '#4A2E2C',
+      textPrimary: '#F4998D',
+      textSecondary: '#F4796B',
+      textTertiary: '#A85248',
+      accent: '#F40000',
+      accentHover: '#F44E3F',
+      accentMuted: 'rgba(244, 0, 0, 0.14)',
+      statusOk: '#B8C24A',
+      statusWarn: '#F49A2B',
+      statusError: '#F40000',
+    },
+    terminal: {
+      background: '#090809',
+      foreground: '#F4998D',
+      cursor: '#F40000',
+      selectionBackground: 'rgba(244, 78, 63, 0.28)',
+      black: '#121011',
+      brightBlack: '#A85248',
+      red: '#F40000',
+      brightRed: '#F44E3F',
+      green: '#A8B84A',
+      brightGreen: '#C2D45C',
+      yellow: '#D98A2B',
+      brightYellow: '#F49A2B',
+      blue: '#A8636B',
+      brightBlue: '#C77E86',
+      magenta: '#C74A6B',
+      brightMagenta: '#E86A8A',
+      cyan: '#C77A5C',
+      brightCyan: '#E89A78',
+      white: '#F4796B',
+      brightWhite: '#F4998D',
+    },
+  },
+  /**
+   * Smelteverk — the smelter: molten orange poured against the cold turquoise of the
+   * quench. The two halves of the palette are opposites, and the theme leans on that.
+   */
+  {
+    id: 'smelteverk',
+    name: 'Smelteverk',
+    mode: 'dark',
+    tokens: {
+      bgBase: '#061512',
+      bgPanel: '#0B1F1B',
+      bgElevated: '#102A25',
+      bgHover: '#16352F',
+      border: '#1B403A',
+      borderFocus: '#26594F',
+      textPrimary: '#DFF7F3',
+      textSecondary: '#7FD8CF',
+      textTertiary: '#529A92',
+      accent: '#FD5200',
+      accentHover: '#FE621D',
+      accentMuted: 'rgba(253, 82, 0, 0.16)',
+      statusOk: '#00CFC1',
+      statusWarn: '#F0A83C',
+      statusError: '#FF5C42',
+    },
+    terminal: {
+      background: '#061512',
+      foreground: '#DFF7F3',
+      cursor: '#FD5200',
+      selectionBackground: 'rgba(0, 255, 231, 0.22)',
+      black: '#0B1F1B',
+      brightBlack: '#529A92',
+      red: '#AF3800',
+      brightRed: '#FE621D',
+      green: '#12B48A',
+      brightGreen: '#23D7A6',
+      yellow: '#E08A1E',
+      brightYellow: '#FFA83C',
+      blue: '#2FA8C7',
+      brightBlue: '#4FC8E5',
+      magenta: '#C76BAF',
+      brightMagenta: '#E58ACB',
+      cyan: '#00CFC1',
+      brightCyan: '#00FFE7',
+      white: '#A9D8D2',
+      brightWhite: '#EFFFFC',
+    },
+  },
+  /**
+   * Skogsvann — a lake in the forest: peat-dark water, deep teal in the shallows, and
+   * the greens of the bank above it. Low contrast on purpose, easy to sit in front of.
+   */
+  {
+    id: 'skogsvann',
+    name: 'Skogsvann',
+    mode: 'dark',
+    tokens: {
+      bgBase: '#1F2421',
+      bgPanel: '#262C29',
+      bgElevated: '#2E3532',
+      bgHover: '#37403C',
+      border: '#3F4B46',
+      borderFocus: '#216869',
+      textPrimary: '#DCE1DE',
+      textSecondary: '#9CC5A1',
+      textTertiary: '#7E9A88',
+      accent: '#49A078',
+      accentHover: '#5CBA8D',
+      accentMuted: 'rgba(73, 160, 120, 0.18)',
+      statusOk: '#49A078',
+      statusWarn: '#D2B36A',
+      statusError: '#D97A70',
+    },
+    terminal: {
+      background: '#1F2421',
+      foreground: '#DCE1DE',
+      cursor: '#49A078',
+      selectionBackground: 'rgba(73, 160, 120, 0.28)',
+      black: '#262C29',
+      brightBlack: '#7E9A88',
+      red: '#C56A61',
+      brightRed: '#D97A70',
+      green: '#49A078',
+      brightGreen: '#9CC5A1',
+      yellow: '#BFA05E',
+      brightYellow: '#D2B36A',
+      blue: '#216869',
+      brightBlue: '#3E8F90',
+      magenta: '#9A8FB0',
+      brightMagenta: '#B4A8C8',
+      cyan: '#4FA8A0',
+      brightCyan: '#6FC7BE',
+      white: '#B5C4BB',
+      brightWhite: '#DCE1DE',
+    },
+  },
+  /**
+   * Svartisen — the glacier whose name means "the black ice": true black, meltwater
+   * greys, and the one green that shows through where the ice is thin.
+   */
+  {
+    id: 'svartisen',
+    name: 'Svartisen',
+    mode: 'dark',
+    tokens: {
+      bgBase: '#000000',
+      bgPanel: '#0A0E10',
+      bgElevated: '#12181B',
+      bgHover: '#1A2226',
+      border: '#222C31',
+      borderFocus: '#586F7C',
+      textPrimary: '#F4F4F9',
+      textSecondary: '#B8DBD9',
+      textTertiary: '#7C919C',
+      accent: '#04724D',
+      accentHover: '#08A06B',
+      accentMuted: 'rgba(4, 114, 77, 0.22)',
+      statusOk: '#08A06B',
+      statusWarn: '#D7AC5C',
+      statusError: '#E07070',
+    },
+    terminal: {
+      background: '#000000',
+      foreground: '#F4F4F9',
+      // The accent is a deep emerald, which would all but vanish as a cursor on black.
+      cursor: '#08A06B',
+      selectionBackground: 'rgba(88, 111, 124, 0.35)',
+      black: '#0A0E10',
+      brightBlack: '#586F7C',
+      red: '#C05A5A',
+      brightRed: '#E07070',
+      green: '#04724D',
+      brightGreen: '#08A06B',
+      yellow: '#B99248',
+      brightYellow: '#D7AC5C',
+      blue: '#5A87A0',
+      brightBlue: '#79A9C4',
+      magenta: '#8E7FA8',
+      brightMagenta: '#A99AC4',
+      cyan: '#7FB8B6',
+      brightCyan: '#B8DBD9',
+      white: '#C9D2D6',
+      brightWhite: '#F4F4F9',
+    },
+  },
+  /**
+   * Nødlys — emergency lighting: black, the greys of unlit metal, and red for
+   * everything that matters. The terminal is red on black, the way a console alarm is.
+   */
+  {
+    id: 'nodlys',
+    name: 'Nødlys',
+    mode: 'dark',
+    tokens: {
+      bgBase: '#000000',
+      bgPanel: '#0C0C0C',
+      bgElevated: '#141414',
+      bgHover: '#1C1C1C',
+      border: '#262626',
+      borderFocus: '#3A3A3A',
+      textPrimary: '#FF3B30',
+      textSecondary: '#D8433E',
+      // Neutral rather than a third red: the dimmest text has to stay legible, and a
+      // dark red at this size does not.
+      textTertiary: '#7A7A7A',
+      accent: '#E52521',
+      accentHover: '#FF3B30',
+      accentMuted: 'rgba(229, 37, 33, 0.18)',
+      statusOk: '#6FA96B',
+      statusWarn: '#D89020',
+      statusError: '#FF3B30',
+    },
+    terminal: {
+      background: '#000000',
+      foreground: '#FF3B30',
+      cursor: '#FF3B30',
+      selectionBackground: 'rgba(229, 37, 33, 0.30)',
+      black: '#0C0C0C',
+      brightBlack: '#7A7A7A',
+      red: '#E52521',
+      brightRed: '#FF3B30',
+      green: '#6FA96B',
+      brightGreen: '#8CC488',
+      yellow: '#C9A227',
+      brightYellow: '#E8BE45',
+      blue: '#7A8C99',
+      brightBlue: '#9BAEBC',
+      magenta: '#B05A6E',
+      brightMagenta: '#D07C8E',
+      cyan: '#6FA0A0',
+      brightCyan: '#8FC0C0',
+      white: '#C4C4C4',
+      brightWhite: '#F0F0F0',
+    },
+  },
 ];
 
+/**
+ * What each theme's id was before the set was renamed.
+ *
+ * The id is what a settings file stores, so a build from before the rename has one of
+ * these written to disk. Mapping them forward keeps a chosen theme chosen; without it
+ * every existing install would silently drop back to the default and look broken.
+ */
+const RENAMED_THEME_IDS: Record<string, string> = {
+  'ns3h-dark': 'midnatt',
+  'ns3h-light': 'dagslys',
+  'kanagawa-wave': 'skumring',
+  'kanagawa-dragon': 'skifer',
+  'kanagawa-lotus': 'pergament',
+  'everforest-dark': 'furu',
+  'everforest-light': 'bjork',
+  'night-owl': 'morketid',
+  'light-owl': 'lysning',
+  'flexoki-dark': 'tjare',
+  'flexoki-light': 'lin',
+  'hacker-green': 'olivin',
+  'hacker-blue': 'blais',
+  'hacker-red': 'falurod',
+};
+
+/** The id a stored value should be read — and rewritten — as. */
+export function resolveThemeId(id: unknown): string {
+  if (typeof id !== 'string') return DEFAULT_THEME_ID;
+  if (THEMES.some((theme) => theme.id === id)) return id;
+  return RENAMED_THEME_IDS[id] ?? DEFAULT_THEME_ID;
+}
+
 export function getTheme(id: string | undefined): ThemeDefinition {
-  return THEMES.find((theme) => theme.id === id) ?? THEMES[0];
+  return THEMES.find((theme) => theme.id === resolveThemeId(id)) ?? THEMES[0];
 }
 
 export function isKnownTheme(id: unknown): id is string {

@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import type { Client as SshClient, ClientChannel, ConnectConfig, SFTPWrapper } from 'ssh2';
-import { Client, SUPPORTED_ALGORITHMS } from './ssh2.js';
+import { sshClientClass, supportedAlgorithms } from './ssh2.js';
 import type { NegotiatedAlgorithms, NoticeLevel, SshAuth, SshTarget } from '@shared/types.js';
 import {
   FULL_ALGORITHMS,
@@ -9,7 +9,7 @@ import {
   filterAlgorithms,
   type AlgorithmSet,
 } from './algorithms.js';
-import { classifySshError, explainNetworkError } from './errors.js';
+import { classifySshError, explainNetworkError, explainSftpRefusal } from './errors.js';
 import { identifyHostKey, type HostKeyIdentity } from './fingerprint.js';
 import { collectRemoteOffer, describeRemoteOffer, type RemoteOffer } from './handshakeLog.js';
 
@@ -62,6 +62,13 @@ export class SshConnection {
   constructor(
     private readonly target: SshTarget,
     private readonly callbacks: SshCallbacks,
+    /**
+     * A transfer-only connection authenticates and stops there (§ phase 12): no shell
+     * channel, so nothing is echoed, logged, or shown in a terminal. Everything else —
+     * the algorithm ladder, host-key verification, the auth re-prompt — is identical,
+     * which is the reason this is an option here rather than a second class.
+     */
+    private readonly options: { shell?: boolean } = {},
   ) {}
 
   get negotiatedAlgorithms(): NegotiatedAlgorithms | null {
@@ -81,7 +88,7 @@ export class SshConnection {
         );
       }
 
-      const { algorithms, dropped } = filterAlgorithms(rung.set, SUPPORTED_ALGORITHMS);
+      const { algorithms, dropped } = filterAlgorithms(rung.set, supportedAlgorithms());
       const droppedLines = describeDropped(dropped);
       if (index === 0 && droppedLines.length > 0) {
         this.callbacks.onNotice(
@@ -153,10 +160,36 @@ export class SshConnection {
       }
       this.client.sftp((error, sftp) => {
         if (error) {
-          reject(new Error(`This device refused an SFTP channel: ${error.message}`));
+          reject(explainSftpRefusal(error, this.target.address));
           return;
         }
         resolveSftp(sftp);
+      });
+    });
+  }
+
+  /**
+   * Opens an exec channel on the connection that is already up — what SCP rides on, and
+   * what the `ls` behind an SCP listing runs in. Same reuse as `openSftp`: no second
+   * authentication, same negotiated crypto.
+   */
+  exec(command: string): Promise<ClientChannel> {
+    return new Promise((resolveChannel, reject) => {
+      if (!this.client) {
+        reject(new Error('The session is not connected.'));
+        return;
+      }
+      this.client.exec(command, (error, channel) => {
+        if (error) {
+          reject(
+            new Error(
+              `This device refused to run a command over SSH: ${error.message}. ` +
+                'Some devices allow a shell but no exec channel, which is what SCP needs.',
+            ),
+          );
+          return;
+        }
+        resolveChannel(channel);
       });
     });
   }
@@ -255,7 +288,7 @@ export class SshConnection {
       };
     }
 
-    const client = new Client();
+    const client = new (sshClientClass())();
     this.client = client;
 
     const offer: RemoteOffer = {};
@@ -305,6 +338,12 @@ export class SshConnection {
       });
 
       client.on('ready', () => {
+        if (this.options.shell === false) {
+          if (this.negotiation) this.callbacks.onConnected(this.negotiation);
+          finish({ kind: 'ready' });
+          return;
+        }
+
         client.shell(
           { term: 'xterm-256color', cols: this.cols, rows: this.rows },
           (error, stream) => {
@@ -338,6 +377,14 @@ export class SshConnection {
       });
 
       client.on('close', () => {
+        // A shell session hears about a drop through its stream. A transfer-only
+        // connection has no stream, so the client's own close is the only signal.
+        if (settled) {
+          if (this.options.shell === false && !this.disposed) {
+            this.callbacks.onClosed('The connection closed.');
+          }
+          return;
+        }
         finish({
           kind: 'failed',
           failure: classifySshError(

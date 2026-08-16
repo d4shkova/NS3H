@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import type { LogFileInfo, LogFolderInfo } from '@shared/logs.js';
 import { useConfig } from '@renderer/stores/config.js';
 import styles from './list.module.css';
@@ -70,9 +70,9 @@ export function LogsList(): JSX.Element {
           <div>
             <h1 className={styles.heading}>Logs</h1>
             <p className={styles.sub}>
-              One folder per device, under <code>{logDirectory}</code>. Reading a session
-              Open one to read it here — virtualised and searchable, so a
-              <code> show tech-support</code> of tens of megabytes opens without a pause.
+              One folder per device, under <code>{logDirectory}</code>. Open a session to
+              read it here — virtualised and searchable, so a{' '}
+              <code>show tech-support</code> of tens of megabytes opens without a pause.
             </p>
           </div>
         </div>
@@ -96,8 +96,10 @@ export function LogsList(): JSX.Element {
             </thead>
             <tbody>
               {folders.map((folder) => (
-                <>
-                  <tr key={folder.name} onClick={() => void openFolder(folder.name)}>
+                // Keyed on the fragment, not the row: a bare <> in a map has no key,
+                // which React reports as a warning on every render of this screen.
+                <Fragment key={folder.name}>
+                  <tr onClick={() => void openFolder(folder.name)}>
                     <td className={styles.name}>
                       <span className={styles.chevron}>{open === folder.name ? '▾' : '▸'}</span>
                       {folder.displayName}
@@ -146,7 +148,7 @@ export function LogsList(): JSX.Element {
                         </td>
                       </tr>
                     ))}
-                </>
+                </Fragment>
               ))}
             </tbody>
           </table>

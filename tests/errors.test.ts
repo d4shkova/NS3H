@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { classifySshError, explainNetworkError } from '../src/main/ssh/errors.js';
+import {
+  classifySshError,
+  explainNetworkError,
+  explainSftpRefusal,
+} from '../src/main/ssh/errors.js';
 import { collectRemoteOffer, describeRemoteOffer } from '../src/main/ssh/handshakeLog.js';
 
 describe('failure classification', () => {
@@ -20,6 +24,23 @@ describe('failure classification', () => {
     expect(classifySshError(error, false).kind).toBe('negotiation');
     // The same reset after a successful handshake is not the ladder's problem.
     expect(classifySshError(error, true).kind).toBe('other');
+  });
+
+  it('explains an SFTP channel a device would not open', () => {
+    // What ssh2 actually reports for a device with no SFTP subsystem: no reason text.
+    const error = new Error('(SSH) Channel open failure: ');
+    const explained = explainSftpRefusal(error, '10.1.1.5');
+
+    expect(explained.message).toContain('10.1.1.5 refused an SFTP channel');
+    expect(explained.message).toContain('SFTP subsystem');
+    // No dangling "()" where ssh2 gave no reason, and no ssh2 stack in the log.
+    expect(explained.message).not.toContain('()');
+    expect(explained.stack).toBe(`Error: ${explained.message}`);
+  });
+
+  it('keeps the reason a device did give', () => {
+    const explained = explainSftpRefusal(new Error('(SSH) Channel open failure: administratively prohibited'), 'sw1');
+    expect(explained.message).toContain('(administratively prohibited)');
   });
 
   it('recognises unreachable hosts', () => {

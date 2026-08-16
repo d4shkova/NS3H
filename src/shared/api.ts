@@ -10,6 +10,8 @@ import type { LogDocument, LogFileInfo, LogFolderInfo, LogMatch } from './logs.j
 import type {
   ImportPreview,
   ImportRequest,
+  FileConnection,
+  FileTargetInput,
   LocalEntry,
   RemoteEntry,
   TransferEvent,
@@ -56,6 +58,11 @@ export interface Ns3hApi {
     saveSettings(patch: Partial<Settings>): Promise<ConfigSnapshot>;
     /** Opens a native directory picker and stores the choice. Null if cancelled. */
     chooseLogDirectory(): Promise<ConfigSnapshot | null>;
+    /**
+     * One stored secret, read back on demand so the user can check it. Null when there is
+     * none, when the owner is not one this install knows, or when there is no keychain.
+     */
+    revealSecret(ownerId: string, kind: 'password' | 'passphrase'): Promise<string | null>;
   };
 
   shell: {
@@ -83,15 +90,43 @@ export interface Ns3hApi {
     list(): Promise<SerialPortInfo[]>;
   };
 
+  /** The launch password (§ phase 15). Off unless the user turns it on. */
+  lock: {
+    status(): Promise<{ enabled: boolean; locked: boolean; theme: string }>;
+    /** True when the password matched and the app is now unlocked. */
+    unlock(password: string): Promise<boolean>;
+    /**
+     * Sets, changes, or removes the launch password. Changing or removing one needs the
+     * current password; `null` removes it.
+     */
+    set(password: string | null, current: string | null): Promise<{ ok: boolean; reason?: string }>;
+    /** Forgets every credential and secret, keeps the hosts, and unlocks. */
+    reset(): Promise<ConfigSnapshot>;
+  };
+
   transfer: {
-    /** SFTP runs over an SSH session that is already open and authenticated. */
-    remoteHome(sessionId: string): Promise<string>;
-    remoteList(sessionId: string, path: string): Promise<RemoteEntry[]>;
+    /**
+     * A connection id: either an open SSH session, whose SFTP channel is reused, or a
+     * standalone connection from `connect` below. Every call here takes both.
+     */
+    remoteHome(connectionId: string): Promise<string>;
+    remoteList(connectionId: string, path: string): Promise<RemoteEntry[]>;
     localList(path: string): Promise<{ path: string; entries: LocalEntry[] }>;
-    download(sessionId: string, remotePath: string, localDirectory: string): Promise<string>;
-    upload(sessionId: string, localPath: string, remoteDirectory: string): Promise<string>;
+    download(connectionId: string, remotePath: string, localDirectory: string): Promise<string>;
+    upload(connectionId: string, localPath: string, remoteDirectory: string): Promise<string>;
     chooseDirectory(): Promise<string | null>;
     onProgress(handler: (event: TransferEvent) => void): Unsubscribe;
+
+    /**
+     * The filesystem path behind a `File` from a drop. Empty when the drop carried no
+     * real file — `File.path` is gone as of Electron 32, and only the preload can ask.
+     */
+    pathForFile(file: File): string;
+
+    /** SFTP or SMB without a terminal session behind it (§ phase 12). */
+    connect(target: FileTargetInput): Promise<FileConnection>;
+    connections(): Promise<FileConnection[]>;
+    disconnect(connectionId: string): Promise<void>;
   };
 
   backup: {
