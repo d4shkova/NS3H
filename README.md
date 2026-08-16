@@ -44,7 +44,7 @@ viewer with search. A quarter-million-line log renders 120 rows at a time.
 
 ## Themes
 
-Settings carries a theme picker: nineteen palettes, each previewed as a miniature terminal in
+Settings carries a theme picker: twenty-three palettes, each previewed as a miniature terminal in
 its own colours. Every one is named for something Scandinavian, and the names are the app's own —
 none is borrowed from another client, and a test asserts that.
 
@@ -59,10 +59,13 @@ none is borrowed from another client, and a test asserts that.
 | **Blåis** | glacier ice | **Falurød** | the red of a Nordic barn |
 | **Røros** | the copper town: whitewash and burnt orange | **Reinmose** | reindeer lichen on stone |
 | **Nordlys** | the aurora, green through cyan | **Rosemaling** | folk painting on a wine ground |
-| **Glør** | embers, once the flame has gone | | |
+| **Glør** | embers, once the flame has gone | **Smelteverk** | the smelter: molten orange, cold quench |
+| **Skogsvann** | a lake in the forest | **Svartisen** | the glacier whose name is "the black ice" |
+| **Nødlys** | emergency lighting: black, grey, red | | |
 
-The last five were built from supplied colour sets and use their given colours verbatim; the
-remaining thirty-odd slots a theme needs are derived in the same family.
+The last nine were built from supplied colour sets and use their given colours verbatim; the
+remaining thirty-odd slots a theme needs are derived in the same family. Nødlys was asked for by
+description rather than by palette — black and dark grey, red text, red on black in the terminal.
 
 **Renaming changed the ids, which a settings file stores.** Every previous id maps forward to its
 theme, so an install from before the rename keeps the theme it was set to instead of silently
