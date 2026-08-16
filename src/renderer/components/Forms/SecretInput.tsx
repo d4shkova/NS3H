@@ -13,6 +13,13 @@ interface Props {
   autoFocus?: boolean;
   /** Marks the field when a form has flagged it. */
   invalid?: boolean;
+  /**
+   * Fetches the secret already stored for this record, if there is one.
+   *
+   * Only called when the eye is clicked on an empty field — a saved password is never
+   * sent to the interface just because a form was opened.
+   */
+  loadStored?: () => Promise<string | null>;
   onKeyDown?: (event: React.KeyboardEvent<HTMLInputElement>) => void;
 }
 
@@ -36,9 +43,11 @@ export function SecretInput({
   autoFocus,
   invalid,
   onKeyDown,
+  loadStored,
 }: Props): JSX.Element {
   const [shown, setShown] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [nothingStored, setNothingStored] = useState(false);
   const generated = useId();
   const inputId = id ?? generated;
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -54,7 +63,26 @@ export function SecretInput({
   // A field that is emptied or replaced should not stay revealed from a previous value.
   useEffect(() => {
     if (value === '') setShown(false);
+    else setNothingStored(false);
   }, [value]);
+
+  /**
+   * Shows the field. On an empty field with a record behind it, that means fetching what
+   * is stored first and putting it in — so what you are looking at is what would be saved,
+   * and the copy button beside it has something to copy.
+   */
+  const reveal = async () => {
+    if (shown) {
+      setShown(false);
+      return;
+    }
+    if (value === '' && loadStored) {
+      const stored = await loadStored();
+      if (stored) onChange(stored);
+      else setNothingStored(true);
+    }
+    setShown(true);
+  };
 
   const copy = async () => {
     if (!value) return;
@@ -87,7 +115,7 @@ export function SecretInput({
         title={shown ? 'Hide' : 'Show — hides itself again after 15 seconds'}
         aria-label={shown ? 'Hide the secret' : 'Show the secret'}
         // Buttons inside a form default to submitting; these must not.
-        onClick={() => setShown((current) => !current)}
+        onClick={() => void reveal()}
       >
         {shown ? EyeOff : Eye}
       </button>
@@ -102,6 +130,12 @@ export function SecretInput({
       >
         {copied ? <span className={styles.copied}>✓</span> : Copy}
       </button>
+
+      {nothingStored && (
+        <span className={styles.note} role="status">
+          nothing saved
+        </span>
+      )}
     </div>
   );
 }

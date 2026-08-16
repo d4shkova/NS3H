@@ -80,8 +80,8 @@ export function HostsList(): JSX.Element {
           <div>
             <h1 className={styles.heading}>Hosts</h1>
             <p className={styles.sub}>
-              Double-click a row to connect. Credentials are resolved in the main process —
-              the interface never sees a secret.
+              Double-click a row to connect. Credentials are resolved in the main process, so
+              connecting never sends a secret to the interface.
             </p>
           </div>
           <button

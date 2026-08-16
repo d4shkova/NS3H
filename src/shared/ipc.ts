@@ -10,6 +10,7 @@ export const IpcChannel = {
   configDeleteCredential: 'config:delete-credential',
   configSaveSettings: 'config:save-settings',
   configChooseLogDirectory: 'config:choose-log-directory',
+  configRevealSecret: 'config:reveal-secret',
   revealPath: 'shell:reveal-path',
   clipboardRead: 'clipboard:read',
   clipboardWrite: 'clipboard:write',

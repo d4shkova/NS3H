@@ -38,8 +38,8 @@ renderer.
 
 Saved hosts and credentials have full CRUD from the sidebar: a folder tree with search, a
 credentials list, and add/edit forms with inline per-field validation. Double-click a host to
-connect — its credential and secret are resolved in the main process, never handed to the
-renderer. Config persists in `~/.config/ns3h/` (or the platform equivalent), with secrets in the
+connect — its credential and secret are resolved in the main process, so connecting never sends a
+secret to the renderer. Config persists in `~/.config/ns3h/` (or the platform equivalent), with secrets in the
 OS keychain via `safeStorage`.
 
 All three protocols connect: SSH, telnet, and serial, from Quick connect or a saved host.
@@ -130,6 +130,15 @@ secret that gets saved wrong, and a masked field cannot be copied from at all, s
 blocks it. A revealed field re-masks itself after fifteen seconds, because nobody remembers to
 click twice and an office has other people in it. Copying goes through the main process, the same
 path a terminal paste takes.
+
+**A saved secret can be read back.** Editing a host or credential shows `Unchanged` in the field,
+as it always did; clicking the eye fetches what is actually stored and shows it, so a password can
+be checked or copied rather than only overwritten. That is the one place a stored secret reaches
+the interface, and it is a pull rather than a push — nothing is sent because a form was opened,
+only because that field's eye was clicked. Main answers only for a credential or an inline
+credential this install actually has, so the channel cannot be used to sweep the keychain for
+entries NS3H did not write, and it stays silent when there is no keychain. Revealing fills the
+field, so what you are looking at is what saving would store.
 
 ## Terminal clipboard
 

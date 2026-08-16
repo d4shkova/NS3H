@@ -1,5 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import type {
+  SecretKind,
   ConfigSnapshot,
   Credential,
   Folder,
@@ -151,6 +152,27 @@ export class ConfigService {
         auth: await this.resolveAuth(host),
       },
     };
+  }
+
+  /**
+   * Hands one stored secret back for the user to read.
+   *
+   * This is the single exception to "secrets are resolved in main and never reach the
+   * interface", and it is deliberate: a password you cannot read is a password you cannot
+   * check, and the alternative is people keeping a second copy somewhere worse. It is a
+   * pull, not a push — nothing is sent until the eye is clicked on that field.
+   *
+   * Only an owner this install actually has is answered, so the channel cannot be used to
+   * sweep the vault for keys NS3H did not write.
+   */
+  async revealSecret(ownerId: string, kind: SecretKind): Promise<string | null> {
+    const known =
+      (await this.credentials.read()).credentials.some((entry) => entry.id === ownerId) ||
+      (await this.hosts.read()).hosts.some(
+        (host) => host.id === ownerId && host.inlineCredential !== null,
+      );
+    if (!known) return null;
+    return this.secrets.get(ownerId, kind);
   }
 
   /**

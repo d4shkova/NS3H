@@ -303,6 +303,13 @@ function registerConfigIpc(): void {
     return config().saveSettings({ logDirectory: result.filePaths[0] });
   });
 
+  ipcMain.handle(IpcChannel.configRevealSecret, (_event, ownerId: unknown, kind: unknown) =>
+    config().revealSecret(
+      requireString(ownerId, 'ownerId'),
+      kind === 'passphrase' ? 'passphrase' : 'password',
+    ),
+  );
+
   ipcMain.handle(IpcChannel.revealPath, (_event, path: unknown) => {
     shell.showItemInFolder(requireString(path, 'path'));
   });

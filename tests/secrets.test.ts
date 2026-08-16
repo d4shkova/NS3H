@@ -244,3 +244,72 @@ describe('ConfigService', () => {
     expect(await secrets.get('crd_1', 'password')).toBeNull();
   });
 });
+
+describe('reading a stored secret back', () => {
+  const credential = {
+    id: 'crd_1',
+    name: 'Net admin',
+    type: 'password' as const,
+    username: 'admin',
+    keyPath: null,
+    hasPassphrase: false,
+  };
+
+  it('hands back what was saved, so the user can check it', async () => {
+    const service = new ConfigService(new SecretsStore(join(dir, 'secrets.enc'), fakeVault()), dir);
+    await service.saveCredential(credential, { password: 'hunter2' });
+
+    expect(await service.revealSecret('crd_1', 'password')).toBe('hunter2');
+  });
+
+  it('reads an inline credential, which is keyed by its host', async () => {
+    const service = new ConfigService(new SecretsStore(join(dir, 'secrets.enc'), fakeVault()), dir);
+    await service.saveHost(
+      {
+        id: 'hst_1',
+        name: 'core-sw-01',
+        protocol: 'ssh',
+        folderId: null,
+        address: '10.1.1.5',
+        port: 22,
+        credentialId: null,
+        inlineCredential: { type: 'password', username: 'admin', keyPath: null },
+        logging: true,
+        serial: null,
+        createdAt: '2026-08-14T10:00:00Z',
+      },
+      { password: 'onthebox' },
+    );
+
+    expect(await service.revealSecret('hst_1', 'password')).toBe('onthebox');
+  });
+
+  it('answers only for owners this install has', async () => {
+    const service = new ConfigService(new SecretsStore(join(dir, 'secrets.enc'), fakeVault()), dir);
+    await service.saveCredential(credential, { password: 'hunter2' });
+
+    // The renderer is sandboxed but it is still the untrusted side of the bridge: this
+    // channel must not be usable to sweep the vault for anything NS3H did not write.
+    expect(await service.revealSecret('crd_nope', 'password')).toBeNull();
+    expect(await service.revealSecret('hst_1', 'password')).toBeNull();
+  });
+
+  it('says nothing rather than guessing when none was stored', async () => {
+    const service = new ConfigService(new SecretsStore(join(dir, 'secrets.enc'), fakeVault()), dir);
+    await service.saveCredential(credential);
+
+    expect(await service.revealSecret('crd_1', 'password')).toBeNull();
+  });
+
+  it('stays silent without a keychain, as everything else does', async () => {
+    // A host saved while a keychain was available, read back on a machine without one.
+    const withVault = new ConfigService(new SecretsStore(join(dir, 'secrets.enc'), fakeVault()), dir);
+    await withVault.saveCredential(credential, { password: 'hunter2' });
+
+    const without = new ConfigService(
+      new SecretsStore(join(dir, 'secrets.enc'), fakeVault(false)),
+      dir,
+    );
+    expect(await without.revealSecret('crd_1', 'password')).toBeNull();
+  });
+});

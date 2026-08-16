@@ -254,6 +254,16 @@ export function HostForm({ host }: Props): JSX.Element {
                     value={secret}
                     placeholder={isEdit ? 'Unchanged' : ''}
                     onChange={setSecret}
+                    // An inline credential keys its secret by host id (§4.1).
+                    loadStored={
+                      isEdit && host
+                        ? () =>
+                            window.ns3h.config.revealSecret(
+                              host.id,
+                              inlineType === 'key' ? 'passphrase' : 'password',
+                            )
+                        : undefined
+                    }
                   />,
                   snapshot.secrets.available
                     ? undefined

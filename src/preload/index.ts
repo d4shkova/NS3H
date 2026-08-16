@@ -68,6 +68,8 @@ const api: Ns3hApi = {
       ipcRenderer.invoke(IpcChannel.configDeleteCredential, credentialId),
     saveSettings: (patch) => ipcRenderer.invoke(IpcChannel.configSaveSettings, patch),
     chooseLogDirectory: () => ipcRenderer.invoke(IpcChannel.configChooseLogDirectory),
+    revealSecret: (ownerId: string, kind: 'password' | 'passphrase') =>
+      ipcRenderer.invoke(IpcChannel.configRevealSecret, ownerId, kind) as Promise<string | null>,
   },
 
   shell: {

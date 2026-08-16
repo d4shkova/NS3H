@@ -58,6 +58,11 @@ export interface Ns3hApi {
     saveSettings(patch: Partial<Settings>): Promise<ConfigSnapshot>;
     /** Opens a native directory picker and stores the choice. Null if cancelled. */
     chooseLogDirectory(): Promise<ConfigSnapshot | null>;
+    /**
+     * One stored secret, read back on demand so the user can check it. Null when there is
+     * none, when the owner is not one this install knows, or when there is no keychain.
+     */
+    revealSecret(ownerId: string, kind: 'password' | 'passphrase'): Promise<string | null>;
   };
 
   shell: {
