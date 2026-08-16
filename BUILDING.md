@@ -13,15 +13,22 @@ uploads the results as artifacts.
 ```sh
 git clone https://github.com/d4shkova/NS3H.git
 cd NS3H
-git checkout claude/ns3h-design-spec-review-ywidhw
+git checkout claude/app-perf-startup-warnings-n135kz
 npm install
-npm test          # 190 tests, no hardware needed
+npm test          # 238 tests, no hardware needed
 npm run dev       # run it
 npm run dist      # build installers for the platform you are on
 ```
 
+`claude/app-perf-startup-warnings-n135kz` is the current working branch. Once it is merged this
+becomes the default branch and the `git checkout` line can go.
+
 Node 20 or newer. Nothing needs compiling — `serialport` ships Node-API prebuilds, so
 `electron-rebuild` and a C++ toolchain are **not** required on any platform.
+
+**Verify before going further.** `npm test` proves the toolchain without any hardware; if it
+passes, an install problem is ruled out. One test drives the system's own `scp` binary to check
+NS3H's SCP implementation against OpenSSH — it skips itself where OpenSSH is absent.
 
 ---
 
@@ -76,8 +83,9 @@ winget install Git.Git
 
 git clone https://github.com/d4shkova/NS3H.git
 cd NS3H
-git checkout claude/ns3h-design-spec-review-ywidhw
+git checkout claude/app-perf-startup-warnings-n135kz
 npm install
+npm test               # 238 tests
 npm run dist:win       # NSIS .exe in release\
 ```
 
@@ -92,16 +100,34 @@ No Visual Studio build tools are needed — nothing compiles.
 
 ## macOS
 
+**There is no Homebrew on a stock Mac**, and nothing here needs it. Install Node from the
+official installer instead — it is one download and it sets up `PATH` for you:
+
 ```sh
-xcode-select --install         # for git, if not already present
-brew install node
+xcode-select --install     # gives you git; skip if you already have it
+uname -m                   # arm64 = Apple silicon, x86_64 = Intel
+```
+
+Download the **LTS** macOS installer (`.pkg`) from <https://nodejs.org>, matching what `uname -m`
+reported, and run it. Then **open a new terminal window** — the installer edits `PATH`, and a
+shell that is already open will not see it:
+
+```sh
+node --version         # v20 or newer
+npm --version
+git --version          # from the Xcode tools above
 
 git clone https://github.com/d4shkova/NS3H.git
 cd NS3H
-git checkout claude/ns3h-design-spec-review-ywidhw
+git checkout claude/app-perf-startup-warnings-n135kz
 npm install
+npm test               # 238 tests
+npm run dev            # check it runs before packaging
 npm run dist:mac       # .dmg in release/
 ```
+
+If you would rather have Homebrew for other reasons, `brew install node` works too — but install
+Homebrew first, from <https://brew.sh>. It is a longer detour for the same result.
 
 Builds a `.dmg` for the architecture you are on. For both, run it twice — once on an Intel Mac and
 once on Apple silicon — or add `--x64 --arm64` to build a universal binary (slower, larger).
@@ -115,9 +141,12 @@ xattr -dr com.apple.quarantine /Applications/NS3H.app
 
 **Serial ports** appear as `/dev/tty.usbserial-*` and need no group membership.
 
-**Untested:** macOS packaging is configured but has never been run. The likeliest snag is the icon
-— `build/icon.png` is a 512×512 placeholder, and macOS may want a proper `.icns`. If the build
-complains, generate one with `iconutil` or replace `build/icon.png` with a designed 1024×1024.
+**Verified.** macOS packaging has now been run end to end: `npm run dist:mac` produced a `.dmg`
+without complaint, and electron-builder converted `build/icon.png` to `.icns`
+on its own — the 512×512 source was accepted, so no `iconutil` step is needed.
+
+`build/icon.png` is still a **placeholder** rather than a designed icon. It packages fine; replace
+it with a 1024×1024 before shipping the app to anyone.
 
 ---
 

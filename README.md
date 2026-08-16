@@ -8,7 +8,7 @@ See [`NS3H-design-spec.md`](./NS3H-design-spec.md) for the full brief.
 
 ## Status
 
-All eleven phases of the build order are in place.
+All eleven phases of the build order are in place, plus the work that followed them.
 
 | Phase | Scope | State |
 |---|---|---|
@@ -24,6 +24,12 @@ All eleven phases of the build order are in place.
 | 9 | SFTP: dual-pane transfer for SSH sessions | done |
 | 10 | Export / import: both formats | done |
 | 11 | Packaging: electron-builder, CI matrix, README | done |
+| 12 | Standalone transfer: SFTP or SMB with no session behind it | done |
+| 13 | SCP, over a session or its own connection | done |
+| 14 | One tab per open transfer | done |
+
+macOS packaging has been run end to end and produces a `.dmg`; Linux and Windows are built by CI
+on every push.
 
 What works today: quick-connect SSH from the main pane, the full → legacy algorithm retry ladder,
 password / public-key / keyboard-interactive authentication with inline re-prompting, host key
