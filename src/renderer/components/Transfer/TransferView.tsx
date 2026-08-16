@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { FileConnection } from '@shared/transfer.js';
 import { useConfig } from '@renderer/stores/config.js';
 import { useSessions } from '@renderer/stores/sessions.js';
@@ -72,9 +72,16 @@ export function TransferView(): JSX.Element {
    * Arriving with nothing open and a session running opens that session's transfer — the
    * one-click path from a terminal to its files. It only fires once the real state is
    * known, so it cannot race the reconcile above and open a duplicate.
+   *
+   * Once per visit, and no more: without the latch, closing the last tab drops the count
+   * back to zero and this immediately opens it again, which makes the close button on a
+   * lone session tab do nothing at all.
    */
+  const autoOpened = useRef(false);
+
   useEffect(() => {
-    if (!ready || tabs.length > 0 || sshSessions.length === 0) return;
+    if (!ready || autoOpened.current || tabs.length > 0 || sshSessions.length === 0) return;
+    autoOpened.current = true;
     const chosen =
       sshSessions.find((session) => session.id === activeSessionId) ?? sshSessions[0];
     open(sessionTab(chosen.id, `${chosen.name} (${chosen.address})`));

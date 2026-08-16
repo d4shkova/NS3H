@@ -88,6 +88,8 @@ export class ScpTransport implements FileTransport {
   ): Promise<string> {
     const channel = new ScpChannel(await this.exec(`scp -f ${quoteRemotePath(remotePath)}`));
     let target = '';
+    let sink: ReturnType<typeof createWriteStream> | null = null;
+    let writeFailure: Error | null = null;
 
     try {
       // The exchange is strictly turn-taking: we say ready, it describes the file, we say
@@ -97,20 +99,27 @@ export class ScpTransport implements FileTransport {
 
       const header = parseControlLine(await channel.readLine());
       target = join(localDirectory, basename(header.name || remotePath));
-      const sink = createWriteStream(target);
+      sink = createWriteStream(target);
+      // Listened for rather than left to chance: an unhandled 'error' on a live stream
+      // takes the main process with it, and a full disk mid-transfer is not exotic.
+      sink.on('error', (cause: Error) => (writeFailure ??= cause));
       channel.ack();
 
+      const file = sink;
       let transferred = 0;
       await channel.readBody(header.size, (chunk) => {
+        if (writeFailure) throw writeFailure;
         transferred += chunk.length;
         onProgress({ transferred, total: header.size });
         // A full write buffer is the disk asking for time; the channel waits for it.
-        return sink.write(chunk) ? undefined : once(sink, 'drain').then(() => undefined);
+        return file.write(chunk) ? undefined : once(file, 'drain').then(() => undefined);
       });
 
       await new Promise<void>((resolve, reject) => {
-        sink.end((error?: Error | null) => (error ? reject(error) : resolve()));
+        file.end((error?: Error | null) => (error ? reject(error) : resolve()));
       });
+      if (writeFailure) throw writeFailure;
+      sink = null;
 
       // The trailing status byte, then our own — after which the device closes.
       await channel.readAck();
@@ -119,6 +128,13 @@ export class ScpTransport implements FileTransport {
       return target;
     } catch (error) {
       channel.end();
+      // The stream has to be shut before the file can go: on Windows an open handle
+      // keeps a file alive and `rm` fails, leaving exactly the half-written file this
+      // is here to remove.
+      if (sink) {
+        sink.destroy();
+        await once(sink, 'close').catch(() => {});
+      }
       // A half-written file is worse than none — it looks like a completed transfer.
       if (target) await rm(target, { force: true }).catch(() => {});
       throw error;
@@ -152,7 +168,11 @@ export class ScpTransport implements FileTransport {
         onProgress({ transferred, total: info.size });
       });
 
-      for await (const chunk of source) channel.write(chunk as Buffer);
+      // Without this a 400 MB image over a slow link is buffered in memory in its
+      // entirety; the download path already waits, and this is the same wait.
+      for await (const chunk of source) {
+        if (!channel.write(chunk as Buffer)) await channel.drain();
+      }
 
       // End-of-file marker, then the device's verdict on the whole thing.
       channel.write(Buffer.from([0]));
@@ -170,7 +190,15 @@ export class ScpTransport implements FileTransport {
     this.disposer?.();
   }
 
-  /** Runs a command and returns its stdout, failing on a non-zero exit. */
+  /**
+   * Runs a command and returns its stdout.
+   *
+   * ssh2 reports the exit code on `close`, but only when the device sent an
+   * `exit-status` — and plenty of gear never sends one, in which case the code arrives
+   * as `undefined`. Reading that as a failure would push a device that answered
+   * perfectly well into the typed-path fallback, so silence is only judged a failure
+   * when nothing came back on stdout and something did on stderr.
+   */
   private async run(command: string): Promise<string> {
     const channel = await this.exec(command);
     const out: Buffer[] = [];
@@ -179,12 +207,17 @@ export class ScpTransport implements FileTransport {
     channel.on('data', (chunk: Buffer) => out.push(chunk));
     channel.stderr?.on('data', (chunk: Buffer) => err.push(chunk));
 
-    const [code] = (await once(channel, 'close')) as [number | null];
-    if (code !== 0 && code !== null) {
-      const detail = Buffer.concat(err).toString('utf8').trim();
-      throw new Error(detail || `the command exited with status ${code}`);
+    const [code] = (await once(channel, 'close')) as [number | null | undefined];
+    const stdout = Buffer.concat(out).toString('utf8');
+    const stderr = Buffer.concat(err).toString('utf8').trim();
+
+    if (typeof code === 'number' && code !== 0) {
+      throw new Error(stderr || `the command exited with status ${code}`);
     }
-    return Buffer.concat(out).toString('utf8');
+    if (typeof code !== 'number' && stdout.length === 0 && stderr.length > 0) {
+      throw new Error(stderr);
+    }
+    return stdout;
   }
 }
 

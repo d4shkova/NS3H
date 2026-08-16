@@ -26,32 +26,50 @@ interface Entry {
  */
 export class TransferHub {
   private readonly connections = new Map<string, Entry>();
+  /**
+   * Connections still being set up. A drop can arrive while the home directory is still
+   * being resolved — before there is an entry to remove — and without this the dead
+   * connection would be registered a moment later and listed as live for good.
+   */
+  private readonly opening = new Set<string>();
 
   constructor(private readonly prompts: SessionManager) {}
 
   async connect(target: FileTargetInput): Promise<FileConnection> {
     const id = `${TRANSFER_ID_PREFIX}${randomBytes(4).toString('hex')}`;
+    this.opening.add(id);
 
-    const transport =
-      target.protocol === 'smb'
-        ? await SmbTransport.connect(target)
-        : await this.connectOverSsh(id, target);
-
-    const label =
-      target.protocol === 'smb'
-        ? shareUnc(target.host, (target.share ?? '').replace(/^[\\/]+|[\\/]+$/g, ''))
-        : `${target.username}@${target.host}`;
-
-    let home = '/';
     try {
-      home = await transport.home();
-    } catch {
-      // A device that will not resolve its own home still lists from the root.
-    }
+      const transport =
+        target.protocol === 'smb'
+          ? await SmbTransport.connect(target)
+          : await this.connectOverSsh(id, target);
 
-    const info: FileConnection = { id, protocol: target.protocol, label, home };
-    this.connections.set(id, { info, transport });
-    return info;
+      const label =
+        target.protocol === 'smb'
+          ? shareUnc(target.host, (target.share ?? '').replace(/^[\\/]+|[\\/]+$/g, ''))
+          : `${target.username}@${target.host}`;
+
+      let home = '/';
+      try {
+        home = await transport.home();
+      } catch {
+        // A device that will not resolve its own home still lists from the root.
+      }
+
+      // `forget` clears this if the far end dropped us while we were still setting up.
+      // Registering it then would leave a dead connection listed as live.
+      if (!this.opening.has(id)) {
+        transport.close();
+        throw new Error(`${label} closed the connection before it was ready.`);
+      }
+
+      const info: FileConnection = { id, protocol: target.protocol, label, home };
+      this.connections.set(id, { info, transport });
+      return info;
+    } finally {
+      this.opening.delete(id);
+    }
   }
 
   private async connectOverSsh(id: string, target: FileTargetInput): Promise<FileTransport> {
@@ -109,6 +127,8 @@ export class TransferHub {
   /** Drops a connection the far end closed, without trying to close it again. */
   private forget(id: string): void {
     this.connections.delete(id);
+    // Also marks one that has not finished connecting, so `connect` does not register it.
+    this.opening.delete(id);
   }
 
   closeAll(): void {

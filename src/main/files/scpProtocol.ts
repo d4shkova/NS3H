@@ -184,8 +184,31 @@ export class ScpChannel {
     }
   }
 
-  write(data: Buffer | string): void {
-    this.channel.write(data);
+  /** False when the channel wants a pause — see `drain`. */
+  write(data: Buffer | string): boolean {
+    return this.channel.write(data);
+  }
+
+  /**
+   * Resolves when the channel is ready for more.
+   *
+   * Settles on close and error as well as on drain: a device that dies mid-upload would
+   * otherwise never emit `drain`, and the transfer would hang rather than fail. The
+   * failure is then reported by the next read, which is where it belongs.
+   */
+  drain(): Promise<void> {
+    if (this.ended) return Promise.resolve();
+    return new Promise((resolve) => {
+      const done = (): void => {
+        this.channel.off('drain', done);
+        this.channel.off('close', done);
+        this.channel.off('error', done);
+        resolve();
+      };
+      this.channel.once('drain', done);
+      this.channel.once('close', done);
+      this.channel.once('error', done);
+    });
   }
 
   ack(): void {

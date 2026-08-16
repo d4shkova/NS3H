@@ -2,7 +2,7 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { Duplex } from 'node:stream';
+import { Duplex, PassThrough } from 'node:stream';
 import type { ClientChannel } from 'ssh2';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { ScpTransport, parseLsOutput } from '../src/main/files/scp.js';
@@ -18,6 +18,8 @@ import {
  */
 class FakeDevice extends Duplex {
   readonly written: Buffer[] = [];
+  /** ssh2 exposes a separate stderr stream on an exec channel; `run` reads it. */
+  readonly stderr = new PassThrough();
   onWrite: ((chunk: Buffer, device: FakeDevice) => void) | null = null;
 
   _read(): void {}
@@ -36,6 +38,18 @@ class FakeDevice extends Duplex {
 
   finish(): void {
     this.push(null);
+  }
+
+  /**
+   * What ssh2 does when a command finishes: end the output, then close the channel —
+   * carrying the exit code only if the device actually sent an `exit-status`.
+   */
+  finishCommand(code?: number): void {
+    this.push(null);
+    process.nextTick(() => {
+      if (code === undefined) this.emit('close');
+      else this.emit('close', code);
+    });
   }
 
   get sent(): Buffer {
@@ -229,6 +243,35 @@ describe('uploading over SCP', () => {
 });
 
 describe('listing over SCP', () => {
+  it('accepts a device that reports no exit status at all', async () => {
+    // ssh2 passes the exit code on `close`, but only when the device sent an
+    // `exit-status`. A plain stream close carries `undefined` — which is exactly what a
+    // lot of network gear does, and reading it as a failure pushed a device that had
+    // answered perfectly well into the typed-path fallback.
+    const device = new FakeDevice();
+    const { transport } = transportFor(device);
+
+    setImmediate(() => {
+      device.send('total 4\n-rw-r--r-- 1 will will 842 Aug 15 09:12 running.cfg\n');
+      device.finishCommand(); // no exit-status, as much network gear does
+    });
+
+    const entries = await transport.list('/var/tmp');
+    expect(entries.map((entry) => entry.name)).toEqual(['running.cfg']);
+  });
+
+  it('still reports a real failure when the device explains itself on stderr', async () => {
+    const device = new FakeDevice();
+    const { transport } = transportFor(device);
+
+    setImmediate(() => {
+      device.stderr.push(Buffer.from('ls: /nope: No such file or directory\n'));
+      device.finishCommand();
+    });
+
+    await expect(transport.list('/nope')).rejects.toThrow('No such file or directory');
+  });
+
   it('parses a coreutils listing', () => {
     const output = [
       'total 16',
