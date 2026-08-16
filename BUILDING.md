@@ -15,7 +15,7 @@ git clone https://github.com/d4shkova/NS3H.git
 cd NS3H
 git checkout claude/app-perf-startup-warnings-n135kz
 npm install
-npm test          # 238 tests, no hardware needed
+npm test          # 260 tests, no hardware needed
 npm run dev       # run it
 npm run dist      # build installers for the platform you are on
 ```
@@ -85,7 +85,7 @@ git clone https://github.com/d4shkova/NS3H.git
 cd NS3H
 git checkout claude/app-perf-startup-warnings-n135kz
 npm install
-npm test               # 238 tests
+npm test               # 260 tests
 npm run dist:win       # NSIS .exe in release\
 ```
 
@@ -121,7 +121,7 @@ git clone https://github.com/d4shkova/NS3H.git
 cd NS3H
 git checkout claude/app-perf-startup-warnings-n135kz
 npm install
-npm test               # 238 tests
+npm test               # 260 tests
 npm run dev            # check it runs before packaging
 npm run dist:mac       # .dmg in release/
 ```

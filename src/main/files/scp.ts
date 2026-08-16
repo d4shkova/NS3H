@@ -16,6 +16,21 @@ import {
 export type ExecChannel = (command: string) => Promise<ClientChannel>;
 
 /**
+ * The POSIX mode to announce for an uploaded file.
+ *
+ * Windows has no POSIX permission bits, so `stat` invents them: every readable file
+ * comes back as 0666 and a read-only one as 0444. Sending that verbatim would make an
+ * upload from Windows land group-writable on a real Unix host, and would make the same
+ * file transfer differently depending on which machine it was sent from. Devices ignore
+ * the field for flash uploads either way, so fall back to 0644 where the source
+ * filesystem has nothing real to say.
+ */
+export function transferMode(mode: number, os: string = process.platform): number {
+  if (os === 'win32') return (mode & 0o200) === 0 ? 0o444 : 0o644;
+  return mode & 0o777 || 0o644;
+}
+
+/**
  * Thrown when the remote side cannot be browsed. SCP has no listing operation at all —
  * `ls` is a separate command, and a switch does not have one — so the pane falls back to
  * a typed path rather than pretending the directory is empty.
@@ -157,7 +172,7 @@ export class ScpTransport implements FileTransport {
     try {
       await channel.readAck();
       channel.write(
-        formatControlLine({ mode: info.mode & 0o777 || 0o644, size: info.size, name }),
+        formatControlLine({ mode: transferMode(info.mode), size: info.size, name }),
       );
       await channel.readAck();
 
