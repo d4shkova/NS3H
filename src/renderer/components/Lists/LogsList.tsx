@@ -18,8 +18,11 @@ function formatWhen(iso: string | null): string {
 export function LogsList(): JSX.Element {
   const logDirectory = useConfig((state) => state.snapshot.settings.logDirectory);
   const setView = useConfig((state) => state.setView);
+  // The open folder outlives this screen: opening a log unmounts it, and coming back
+  // should land on the same expanded device rather than a collapsed list.
+  const open = useConfig((state) => state.expandedLogFolder);
+  const setOpen = useConfig((state) => state.setExpandedLogFolder);
   const [folders, setFolders] = useState<LogFolderInfo[]>([]);
-  const [open, setOpen] = useState<string | null>(null);
   const [sessions, setSessions] = useState<LogFileInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -43,15 +46,26 @@ export function LogsList(): JSX.Element {
     void reload(true);
   }, [logDirectory, reload]);
 
-  const openFolder = async (name: string) => {
-    if (open === name) {
-      setOpen(null);
+  // Reads the open folder's sessions — on expanding one, and again on returning to this
+  // screen with one already open, where nothing is in hand to render.
+  useEffect(() => {
+    if (!open) {
       setSessions([]);
       return;
     }
-    setOpen(name);
-    setSessions(await window.ns3h.logs.sessions(name).catch(() => []));
-  };
+
+    let cancelled = false;
+    void window.ns3h.logs
+      .sessions(open)
+      .then((list) => !cancelled && setSessions(list))
+      .catch(() => !cancelled && setSessions([]));
+
+    return () => {
+      cancelled = true;
+    };
+  }, [open, logDirectory]);
+
+  const openFolder = (name: string) => setOpen(open === name ? null : name);
 
   const deleteFolder = async (folder: LogFolderInfo) => {
     const count = folder.sessions === 1 ? '1 session log' : `${folder.sessions} session logs`;
@@ -63,10 +77,7 @@ export function LogsList(): JSX.Element {
     try {
       await window.ns3h.logs.deleteFolder(folder.name);
       setError(null);
-      if (open === folder.name) {
-        setOpen(null);
-        setSessions([]);
-      }
+      if (open === folder.name) setOpen(null);
       await reload();
     } catch (cause) {
       setError((cause as Error).message);
@@ -146,7 +157,7 @@ export function LogsList(): JSX.Element {
                 // Keyed on the fragment, not the row: a bare <> in a map has no key,
                 // which React reports as a warning on every render of this screen.
                 <Fragment key={folder.name}>
-                  <tr onClick={() => void openFolder(folder.name)}>
+                  <tr onClick={() => openFolder(folder.name)}>
                     <td className={styles.name}>
                       <span className={styles.chevron}>{open === folder.name ? '▾' : '▸'}</span>
                       {folder.displayName}
