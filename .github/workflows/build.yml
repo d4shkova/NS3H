@@ -46,6 +46,10 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      # The check job above runs on Ubuntu only, so a test that quietly assumes a
+      # Unix filesystem passes there and fails on a developer's Windows machine.
+      # Running the suite on each packaging OS catches that where it happens.
+      - run: npm test
       - name: Build installers
         run: npx electron-builder ${{ matrix.target }} --publish never
         env:

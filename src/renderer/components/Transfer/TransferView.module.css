@@ -58,10 +58,18 @@
   white-space: pre-wrap;
 }
 
+/*
+ * `minmax(0, 1fr)` rather than `1fr`: a bare `1fr` track will not shrink below the
+ * min-content width of what is in it, and a long file name or a deep path sets that
+ * floor high — a listing of firmware images held the pair of panes at ~775px however
+ * narrow the window got. `body` has `overflow: hidden`, so the excess was not
+ * scrollable either; the remote pane simply sat past the right edge until the window
+ * was dragged wider. The names inside already ellipsize, and now they are allowed to.
+ */
 .panes {
   flex: 1;
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   min-height: 0;
 }
 
@@ -69,6 +77,7 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
+  min-width: 0;
   border-right: 1px solid var(--border);
 }
 
@@ -196,10 +205,19 @@
   padding: 3px 0;
 }
 
+/*
+ * A firmware image's name is long, and it was pinned to at least 200px — enough to push
+ * the progress bar and the byte count off a narrow window. It gets 200px where there is
+ * room and gives way below that, the same as the file names above it.
+ */
 .transferName {
   font-family: var(--font-mono);
   color: var(--text-primary);
-  min-width: 200px;
+  flex: 0 1 200px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .progress {

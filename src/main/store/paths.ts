@@ -1,5 +1,15 @@
 import { homedir, platform } from 'node:os';
-import { join } from 'node:path';
+import { posix, win32 } from 'node:path';
+
+/**
+ * Node's own `join` uses the separator of the machine it runs on, not of the
+ * platform being described. Everything here takes the target platform as an
+ * argument, so pick the separator from that instead — otherwise a Linux path
+ * resolved on a Windows machine comes back with backslashes.
+ */
+function pathFor(os: string) {
+  return os === 'win32' ? win32 : posix;
+}
 
 /**
  * All config lives in one directory:
@@ -15,6 +25,7 @@ export function configDirectory(
   os: string = platform(),
   home: string = homedir(),
 ): string {
+  const { join } = pathFor(os);
   if (os === 'win32') {
     return join(env.APPDATA ?? join(home, 'AppData', 'Roaming'), 'ns3h');
   }
@@ -31,6 +42,10 @@ export const ConfigFile = {
   knownHosts: 'known-hosts.json',
 } as const;
 
-export function configPath(file: string, dir: string = configDirectory()): string {
-  return join(dir, file);
+export function configPath(
+  file: string,
+  dir: string = configDirectory(),
+  os: string = platform(),
+): string {
+  return pathFor(os).join(dir, file);
 }

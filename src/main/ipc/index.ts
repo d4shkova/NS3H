@@ -1,6 +1,7 @@
 import { BrowserWindow, clipboard, dialog, ipcMain, shell, type WebContents } from 'electron';
 import { IpcChannel } from '@shared/ipc.js';
-import type { OpenSessionResult, SshTarget } from '@shared/types.js';
+import type { OpenSessionResult } from '@shared/types.js';
+import { parseTarget, requireString } from './targets.js';
 import type { Credential, Folder, Host, Settings } from '@shared/config.js';
 import { SessionManager } from '../sessions/manager.js';
 import { secrets } from '../secrets/index.js';
@@ -254,26 +255,6 @@ async function parseFileTarget(raw: unknown): Promise<FileTargetInput> {
 
   if (!target.username) throw new Error('username must not be empty');
   return target;
-}
-
-function requireString(value: unknown, field: string): string {
-  if (typeof value !== 'string' || value.length === 0) {
-    throw new Error(`${field} must be a non-empty string`);
-  }
-  return value;
-}
-
-function parseTarget(raw: unknown): SshTarget {
-  const target = raw as SshTarget;
-  requireString(target?.address, 'address');
-  requireString(target?.auth?.username, 'username');
-  if (typeof target.port !== 'number' || target.port < 1 || target.port > 65535) {
-    throw new Error('port must be between 1 and 65535');
-  }
-  if (!['password', 'key', 'prompt'].includes(target.auth?.kind)) {
-    throw new Error('unsupported auth kind');
-  }
-  return { ...target, name: target.name || target.address };
 }
 
 function parseTelnetTarget(raw: unknown): TelnetTargetInput {
@@ -543,9 +524,10 @@ export function registerIpc(): void {
     }
   });
 
-  handle(IpcChannel.sessionOpenSsh, (event, raw): OpenSessionResult => {
+  handle(IpcChannel.sessionOpenSsh, async (event, raw): Promise<OpenSessionResult> => {
     // Quick connections have no saved host, so they always log, under `_quick/`.
-    const sessionId = managerFor(event.sender).openSsh(parseTarget(raw), { logging: true });
+    const target = await parseTarget(raw, (id) => config().resolveCredential(id));
+    const sessionId = managerFor(event.sender).openSsh(target, { logging: true });
     return { sessionId };
   });
 

@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { Duplex, PassThrough } from 'node:stream';
 import type { ClientChannel } from 'ssh2';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { ScpTransport, parseLsOutput } from '../src/main/files/scp.js';
+import { ScpTransport, parseLsOutput, transferMode } from '../src/main/files/scp.js';
 import {
   formatControlLine,
   parseControlLine,
@@ -99,6 +99,24 @@ describe('control lines', () => {
 
   it('refuses a line it cannot read rather than guessing', () => {
     expect(() => parseControlLine('not a control line')).toThrow('could not read');
+  });
+});
+
+describe('the announced file mode', () => {
+  it('passes through real POSIX bits', () => {
+    expect(transferMode(0o100600, 'linux')).toBe(0o600);
+    expect(transferMode(0o100755, 'darwin')).toBe(0o755);
+  });
+
+  it('falls back to 0644 when the filesystem reports nothing', () => {
+    expect(transferMode(0o100000, 'linux')).toBe(0o644);
+  });
+
+  // Windows fabricates 0666 for every writable file, so the bits it reports are not
+  // permissions at all — only the read-only flag carries information.
+  it('ignores the bits Windows invents, keeping only read-only', () => {
+    expect(transferMode(0o100666, 'win32')).toBe(0o644);
+    expect(transferMode(0o100444, 'win32')).toBe(0o444);
   });
 });
 

@@ -12,7 +12,7 @@ import type {
   SessionNoticeEvent,
   SerialPortInfo,
   SessionStatusEvent,
-  SshTarget,
+  SshTargetInput,
   TelnetTargetInput,
 } from '@shared/types.js';
 
@@ -152,7 +152,7 @@ const api: Ns3hApi = {
   session: {
     openHost: (hostId: string) =>
       ipcRenderer.invoke(IpcChannel.sessionOpenHost, hostId) as Promise<OpenSessionResult>,
-    openSsh: (target: SshTarget) =>
+    openSsh: (target: SshTargetInput) =>
       ipcRenderer.invoke(IpcChannel.sessionOpenSsh, target) as Promise<OpenSessionResult>,
     openTelnet: (target: TelnetTargetInput) =>
       ipcRenderer.invoke(IpcChannel.sessionOpenTelnet, target) as Promise<OpenSessionResult>,

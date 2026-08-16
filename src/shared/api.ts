@@ -25,7 +25,7 @@ import type {
   SessionNoticeEvent,
   SerialPortInfo,
   SessionStatusEvent,
-  SshTarget,
+  SshTargetInput,
   TelnetTargetInput,
 } from './types.js';
 
@@ -144,7 +144,7 @@ export interface Ns3hApi {
   session: {
     /** Connect to a saved host, resolving its credential and secret in main. */
     openHost(hostId: string): Promise<OpenSessionResult>;
-    openSsh(target: SshTarget): Promise<OpenSessionResult>;
+    openSsh(target: SshTargetInput): Promise<OpenSessionResult>;
     openTelnet(target: TelnetTargetInput): Promise<OpenSessionResult>;
     openSerial(name: string, config: SerialConfig): Promise<OpenSessionResult>;
     /** Serial only: assert break for 250 ms (Cisco password recovery). */
