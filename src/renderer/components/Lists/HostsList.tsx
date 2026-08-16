@@ -8,6 +8,10 @@ export function HostsList(): JSX.Element {
   const snapshot = useConfig((state) => state.snapshot);
   const setView = useConfig((state) => state.setView);
   const deleteHost = useConfig((state) => state.deleteHost);
+  // Shared with the sidebar tree, so a folder collapsed in one is collapsed in the
+  // other — the two views are meant to show the same thing (§6.3).
+  const expanded = useConfig((state) => state.expandedFolders);
+  const toggleFolder = useConfig((state) => state.toggleFolder);
   const connectHost = useSessions((state) => state.connectHost);
   const [filter, setFilter] = useState('');
 
@@ -43,9 +47,17 @@ export function HostsList(): JSX.Element {
   const groups = useMemo(() => {
     const filtering = filter.trim().length > 0;
     const inFolder = (id: string | null) => shown.filter((host) => host.folderId === id);
+    // Folders start open, and a filter overrides a collapse — a match hidden inside a
+    // folded folder looks like the filter found nothing.
+    const isOpen = (key: string) => filtering || (expanded[key] ?? true);
 
     const grouped = folders
-      .map((folder) => ({ id: folder.id, name: folder.name, hosts: inFolder(folder.id) }))
+      .map((folder) => ({
+        key: folder.id,
+        name: folder.name,
+        hosts: inFolder(folder.id),
+        open: isOpen(folder.id),
+      }))
       .filter((group) => !filtering || group.hosts.length > 0);
 
     // A folder id that no longer resolves — an import can carry one — would otherwise
@@ -53,9 +65,12 @@ export function HostsList(): JSX.Element {
     const known = new Set(folders.map((folder) => folder.id));
     const loose = shown.filter((host) => !host.folderId || !known.has(host.folderId));
     return loose.length > 0
-      ? [...grouped, { id: '', name: 'Ungrouped', hosts: loose }]
+      ? [
+          ...grouped,
+          { key: '_ungrouped', name: 'Ungrouped', hosts: loose, open: isOpen('_ungrouped') },
+        ]
       : grouped;
-  }, [shown, folders, filter]);
+  }, [shown, folders, filter, expanded]);
 
   return (
     <div className={styles.wrap}>
@@ -103,17 +118,28 @@ export function HostsList(): JSX.Element {
             </thead>
             <tbody>
               {groups.map((group) => (
-                <Fragment key={group.id || '_ungrouped'}>
+                <Fragment key={group.key}>
                   <tr className={styles.groupRow}>
                     <th className={styles.groupName} colSpan={6} scope="colgroup">
-                      {group.name}
-                      <span className={styles.groupCount}>
-                        {group.hosts.length} host{group.hosts.length === 1 ? '' : 's'}
-                      </span>
+                      <button
+                        type="button"
+                        className={styles.groupToggle}
+                        aria-expanded={group.open}
+                        onClick={() => toggleFolder(group.key)}
+                        title={group.open ? 'Collapse this folder' : 'Expand this folder'}
+                      >
+                        <span className={styles.chevron} aria-hidden="true">
+                          {group.open ? '▾' : '▸'}
+                        </span>
+                        {group.name}
+                        <span className={styles.groupCount}>
+                          {group.hosts.length} host{group.hosts.length === 1 ? '' : 's'}
+                        </span>
+                      </button>
                     </th>
                   </tr>
 
-                  {group.hosts.length === 0 ? (
+                  {!group.open ? null : group.hosts.length === 0 ? (
                     <tr>
                       <td className={styles.groupEmpty} colSpan={6}>
                         Empty — assign a host to this folder when you edit it.

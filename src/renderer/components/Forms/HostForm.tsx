@@ -4,6 +4,7 @@ import type { Protocol } from '@shared/types.js';
 import { useConfig } from '@renderer/stores/config.js';
 import { DEFAULT_SERIAL, SerialFields } from './SerialFields.js';
 import styles from './form.module.css';
+import { SecretInput } from './SecretInput.js';
 
 interface Props {
   host: Host | null;
@@ -248,12 +249,11 @@ export function HostForm({ host }: Props): JSX.Element {
                 {field(
                   'secret',
                   inlineType === 'key' ? 'Passphrase' : 'Password',
-                  <input
+                  <SecretInput
                     id="secret"
-                    type="password"
                     value={secret}
                     placeholder={isEdit ? 'Unchanged' : ''}
-                    onChange={(event) => setSecret(event.target.value)}
+                    onChange={setSecret}
                   />,
                   snapshot.secrets.available
                     ? undefined

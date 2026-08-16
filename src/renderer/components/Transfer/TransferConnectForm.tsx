@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { FileConnection, FileProtocol, FileTargetInput } from '@shared/transfer.js';
 import { useConfig } from '@renderer/stores/config.js';
 import styles from './TransferConnectForm.module.css';
+import { SecretInput } from '../Forms/SecretInput.js';
 
 const DEFAULT_PORT: Record<FileProtocol, number> = { sftp: 22, scp: 22, smb: 445 };
 
@@ -249,13 +250,7 @@ export function TransferConnectForm({
             </div>
             <div className={styles.field}>
               <label htmlFor="transfer-password">Password</label>
-              <input
-                id="transfer-password"
-                type="password"
-                value={password}
-                autoComplete="off"
-                onChange={(event) => setPassword(event.target.value)}
-              />
+              <SecretInput id="transfer-password" value={password} onChange={setPassword} />
             </div>
           </div>
 

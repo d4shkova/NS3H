@@ -108,7 +108,11 @@
   letter-spacing: 0.06em;
   text-transform: uppercase;
   flex: none;
-  width: 30px;
+  /* Wide enough for TELNET and SERIAL: at 30px they overflowed the column and ran
+     underneath the hostname next to them. */
+  width: 46px;
+  overflow: hidden;
+  white-space: nowrap;
 }
 
 .name {

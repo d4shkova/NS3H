@@ -92,6 +92,10 @@ With nothing connected, the app opens on a card grid — Quick connect, Hosts, C
 File transfer — each showing live counts, and each opening that thing as a list in the main pane.
 The sidebar mirrors it: the same entry drives both panels.
 
+Folders on the Hosts screen fold: the heading is the control, and the state is shared with the
+sidebar tree, so a folder collapsed in one is collapsed in the other. A filter overrides a
+collapse — a match hidden inside a folded folder looks like the filter found nothing.
+
 **With sessions open, Home is the sessions.** The card grid is what stands in when there is no
 work to go back to; once there are connections, Home lands on the dock and its tabs rather than
 on a menu to click through. Every card's destination is in the sidebar regardless. Sessions keep
@@ -100,6 +104,16 @@ running (and logging) behind whatever else is on screen.
 The two tabbed areas are deliberately separate: terminals live in the session dock, file
 transfers live on their own screen with their own tabs, and neither competes with the other for
 the pane.
+
+## Secrets on screen
+
+Every password and passphrase field — Quick connect, host and credential forms, the transfer
+connect form, backup passphrases, and a device's own keyboard-interactive prompt — has an eye to
+reveal it and a button to copy it. Both are there for the same reason: a secret typed blind is a
+secret that gets saved wrong, and a masked field cannot be copied from at all, since Chromium
+blocks it. A revealed field re-masks itself after fifteen seconds, because nobody remembers to
+click twice and an office has other people in it. Copying goes through the main process, the same
+path a terminal paste takes.
 
 ## Terminal clipboard
 

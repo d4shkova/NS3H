@@ -220,3 +220,28 @@
   text-decoration: underline;
   padding: 0;
 }
+
+/* The folder heading is the control that folds it. */
+.groupToggle {
+  display: flex;
+  align-items: baseline;
+  width: 100%;
+  text-align: left;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+}
+
+.groupToggle:hover {
+  color: var(--text-primary);
+}
+
+.groupToggle .chevron {
+  display: inline-block;
+  width: 14px;
+  flex: none;
+  color: var(--text-tertiary);
+  margin-right: 0;
+}

@@ -3,6 +3,7 @@ import type { ImportPreview } from '@shared/transfer.js';
 import { useConfig } from '@renderer/stores/config.js';
 import formStyles from '../Forms/form.module.css';
 import styles from './BackupSection.module.css';
+import { SecretInput } from '../Forms/SecretInput.js';
 
 type Stage =
   | { kind: 'idle' }
@@ -113,12 +114,11 @@ export function BackupSection(): JSX.Element {
           }}
         >
           <label htmlFor="bundle-passphrase">Passphrase for this backup</label>
-          <input
+          <SecretInput
             id="bundle-passphrase"
-            type="password"
             autoFocus
             value={passphrase}
-            onChange={(event) => setPassphrase(event.target.value)}
+            onChange={setPassphrase}
           />
           <p className={styles.warning}>
             There is no recovery for this passphrase. Without it the backup cannot be read.
@@ -143,12 +143,11 @@ export function BackupSection(): JSX.Element {
           }}
         >
           <label htmlFor="unlock-passphrase">This backup is encrypted</label>
-          <input
+          <SecretInput
             id="unlock-passphrase"
-            type="password"
             autoFocus
             value={passphrase}
-            onChange={(event) => setPassphrase(event.target.value)}
+            onChange={setPassphrase}
           />
           <div className={styles.panelActions}>
             <button type="button" onClick={() => setStage({ kind: 'idle' })}>

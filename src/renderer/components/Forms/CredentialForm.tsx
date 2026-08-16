@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { Credential } from '@shared/config.js';
 import { useConfig } from '@renderer/stores/config.js';
 import styles from './form.module.css';
+import { SecretInput } from './SecretInput.js';
 
 interface Props {
   credential: Credential | null;
@@ -122,12 +123,11 @@ export function CredentialForm({ credential }: Props): JSX.Element {
         {field(
           'secret',
           type === 'key' ? 'Passphrase' : 'Password',
-          <input
+          <SecretInput
             id="secret"
-            type="password"
             value={secret}
             placeholder={isEdit ? 'Unchanged' : ''}
-            onChange={(event) => setSecret(event.target.value)}
+            onChange={setSecret}
           />,
           type === 'key' ? 'Leave blank if the key has no passphrase.' : undefined,
         )}

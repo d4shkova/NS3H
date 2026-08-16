@@ -3,6 +3,7 @@ import { useSessions } from '@renderer/stores/sessions.js';
 import { useConfig } from '@renderer/stores/config.js';
 import { sessionTab, useTransfers } from '@renderer/stores/transfers.js';
 import { terminals } from '@renderer/terminals/registry.js';
+import { SecretInput } from '../Forms/SecretInput.js';
 import styles from './SessionOverlays.module.css';
 
 /**
@@ -123,17 +124,34 @@ function AuthPromptForm({
       {fields.map((field, index) => (
         <div key={field.key} className={styles.field}>
           <label htmlFor={`${field.key}-${index}`}>{field.label}</label>
-          <input
-            id={`${field.key}-${index}`}
-            type={field.echo ? 'text' : 'password'}
-            autoFocus={index === 0}
-            value={values[index]}
-            onChange={(event) =>
-              setValues((current) =>
-                current.map((value, position) => (position === index ? event.target.value : value)),
-              )
-            }
-          />
+          {/* A masked prompt gets the reveal; one the device asked to echo is not a
+              secret and stays a plain field. */}
+          {field.echo ? (
+            <input
+              id={`${field.key}-${index}`}
+              type="text"
+              autoFocus={index === 0}
+              value={values[index]}
+              onChange={(event) =>
+                setValues((current) =>
+                  current.map((value, position) =>
+                    position === index ? event.target.value : value,
+                  ),
+                )
+              }
+            />
+          ) : (
+            <SecretInput
+              id={`${field.key}-${index}`}
+              autoFocus={index === 0}
+              value={values[index]}
+              onChange={(next) =>
+                setValues((current) =>
+                  current.map((value, position) => (position === index ? next : value)),
+                )
+              }
+            />
+          )}
         </div>
       ))}
       <div className={styles.actions}>
