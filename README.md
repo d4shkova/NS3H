@@ -45,17 +45,28 @@ viewer with search. A quarter-million-line log renders 120 rows at a time.
 ## Themes
 
 Settings carries a theme picker: nineteen palettes, each previewed as a miniature terminal in
-its own colours. NS3H Dark and Light, Kanagawa (Wave, Dragon, Lotus), Everforest (dark and
-light), Night Owl and Light Owl, Flexoki (dark and light), and three high-contrast Hacker
-palettes. They are NS3H's own renderings of well-known colour schemes, not copies of any
-client's assets.
+its own colours. Every one is named for something Scandinavian, and the names are the app's own —
+none is borrowed from another client, and a test asserts that.
 
-Five more are NS3H's own, built from supplied colour sets and named for Norwegian things:
-**Røros** (the copper town — warm whitewash and burnt orange, the set's only light theme),
-**Reinmose** (reindeer lichen: grey stone, pale green over it), **Nordlys** (the aurora, green
-through cyan on a winter sky), **Rosemaling** (folk painting on a dark wine ground) and **Glør**
-(embers — near-black, everything else glowing red to salmon). Each uses its five given colours
-verbatim; the remaining thirty-odd slots a theme needs are derived in the same family.
+| Theme | | Theme | |
+|---|---|---|---|
+| **Midnatt** | midnight; the default | **Dagslys** | daylight |
+| **Skumring** | dusk over water | **Skifer** | slate |
+| **Pergament** | parchment | **Furu** | pine forest |
+| **Bjørk** | birch: pale bark, green leaf | **Mørketid** | the polar night |
+| **Lysning** | a clearing, first light | **Tjære** | tar |
+| **Lin** | linen | **Olivin** | olivine, the green mineral |
+| **Blåis** | glacier ice | **Falurød** | the red of a Nordic barn |
+| **Røros** | the copper town: whitewash and burnt orange | **Reinmose** | reindeer lichen on stone |
+| **Nordlys** | the aurora, green through cyan | **Rosemaling** | folk painting on a wine ground |
+| **Glør** | embers, once the flame has gone | | |
+
+The last five were built from supplied colour sets and use their given colours verbatim; the
+remaining thirty-odd slots a theme needs are derived in the same family.
+
+**Renaming changed the ids, which a settings file stores.** Every previous id maps forward to its
+theme, so an install from before the rename keeps the theme it was set to instead of silently
+reverting to the default, and the stored value is rewritten once on the next save.
 
 A theme carries **both halves** — the app's design tokens and the terminal's 16-colour palette —
 in one object (`shared/themes.ts`). Keeping them together is what stops the chrome and the

@@ -1,5 +1,5 @@
 import { DEFAULT_SETTINGS, type Settings } from '@shared/config.js';
-import { DEFAULT_THEME_ID, isKnownTheme } from '@shared/themes.js';
+import { resolveThemeId } from '@shared/themes.js';
 import { ConfigFile, configPath } from './paths.js';
 import { JsonStore } from './jsonStore.js';
 
@@ -18,9 +18,11 @@ export function normaliseSettings(raw: unknown): Settings {
       typeof settings.logDirectory === 'string' && settings.logDirectory.length > 0
         ? settings.logDirectory
         : null,
-    // An unknown id — a hand-edited file, or a theme removed in a later version —
-    // falls back rather than leaving the app unstyled.
-    theme: isKnownTheme(settings.theme) ? settings.theme : DEFAULT_THEME_ID,
+    // An unknown id — a hand-edited file, or a theme removed in a later version — falls
+    // back rather than leaving the app unstyled. An id from before the themes were
+    // renamed is carried forward to its new one, and rewritten here so it only has to be
+    // translated once.
+    theme: resolveThemeId(settings.theme),
     fontFamily:
       typeof settings.fontFamily === 'string' && settings.fontFamily.length > 0
         ? settings.fontFamily

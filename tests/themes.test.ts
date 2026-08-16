@@ -4,6 +4,7 @@ import {
   THEMES,
   getTheme,
   isKnownTheme,
+  resolveThemeId,
   type TerminalPalette,
   type ThemeTokens,
 } from '../src/shared/themes.js';
@@ -86,15 +87,56 @@ describe('theme lookup', () => {
   });
 
   it('recognises known ids only', () => {
-    expect(isKnownTheme('kanagawa-wave')).toBe(true);
+    expect(isKnownTheme('skumring')).toBe(true);
     expect(isKnownTheme('dark-red')).toBe(false);
     expect(isKnownTheme(42)).toBe(false);
+    // A renamed theme's old id is no longer one of the set — it is resolved, not known.
+    expect(isKnownTheme('kanagawa-wave')).toBe(false);
+  });
+
+  it('carries an id from before the rename forward to its theme', () => {
+    // A settings file written by an earlier build names the old id. Dropping to the
+    // default there would look like the app forgetting the chosen theme.
+    expect(getTheme('kanagawa-wave').id).toBe('skumring');
+    expect(getTheme('everforest-light').id).toBe('bjork');
+    expect(getTheme('hacker-red').id).toBe('falurod');
+    expect(getTheme('ns3h-dark').id).toBe(DEFAULT_THEME_ID);
+  });
+
+  it('has a forward mapping for every renamed theme, pointing at a real one', () => {
+    const ids = new Set(THEMES.map((theme) => theme.id));
+    const old = [
+      'ns3h-dark', 'ns3h-light', 'kanagawa-wave', 'kanagawa-dragon', 'kanagawa-lotus',
+      'everforest-dark', 'everforest-light', 'night-owl', 'light-owl',
+      'flexoki-dark', 'flexoki-light', 'hacker-green', 'hacker-blue', 'hacker-red',
+    ];
+    for (const id of old) {
+      expect(ids.has(resolveThemeId(id)), `${id} resolves to a theme that exists`).toBe(true);
+    }
+
+    // Landing on the default would mean the mapping is missing, not that it worked —
+    // except for the theme that *is* the default, which is where it should land.
+    const collapsed = old.filter((id) => resolveThemeId(id) === DEFAULT_THEME_ID);
+    expect(collapsed).toEqual(['ns3h-dark']);
+  });
+
+  it('drops nothing Scandinavian on the floor', () => {
+    // Every name in the picker is the app's own; none is borrowed from another client.
+    const borrowed = /kanagawa|everforest|owl|flexoki|hacker/i;
+    for (const theme of THEMES) {
+      expect(theme.name, `${theme.id} name`).not.toMatch(borrowed);
+      expect(theme.id, `${theme.id} id`).not.toMatch(borrowed);
+    }
   });
 });
 
 describe('stored setting', () => {
   it('keeps a valid theme', () => {
-    expect(normaliseSettings({ theme: 'everforest-dark' }).theme).toBe('everforest-dark');
+    expect(normaliseSettings({ theme: 'furu' }).theme).toBe('furu');
+  });
+
+  it('rewrites an id from before the rename, so it is translated once', () => {
+    expect(normaliseSettings({ theme: 'everforest-dark' }).theme).toBe('furu');
   });
 
   it('replaces one that no longer exists, including the pre-theme value', () => {

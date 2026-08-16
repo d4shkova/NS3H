@@ -58,12 +58,12 @@ export interface ThemeDefinition {
   terminal: TerminalPalette;
 }
 
-export const DEFAULT_THEME_ID = 'ns3h-dark';
+export const DEFAULT_THEME_ID = 'midnatt';
 
 export const THEMES: ThemeDefinition[] = [
   {
-    id: 'ns3h-dark',
-    name: 'NS3H Dark',
+    id: 'midnatt',
+    name: 'Midnatt',
     mode: 'dark',
     tokens: {
       bgBase: '#0A0A0B',
@@ -106,8 +106,8 @@ export const THEMES: ThemeDefinition[] = [
     },
   },
   {
-    id: 'ns3h-light',
-    name: 'NS3H Light',
+    id: 'dagslys',
+    name: 'Dagslys',
     mode: 'light',
     tokens: {
       bgBase: '#FFFFFF',
@@ -150,8 +150,8 @@ export const THEMES: ThemeDefinition[] = [
     },
   },
   {
-    id: 'kanagawa-wave',
-    name: 'Kanagawa Wave',
+    id: 'skumring',
+    name: 'Skumring',
     mode: 'dark',
     tokens: {
       bgBase: '#1F1F28',
@@ -194,8 +194,8 @@ export const THEMES: ThemeDefinition[] = [
     },
   },
   {
-    id: 'kanagawa-dragon',
-    name: 'Kanagawa Dragon',
+    id: 'skifer',
+    name: 'Skifer',
     mode: 'dark',
     tokens: {
       bgBase: '#181616',
@@ -238,8 +238,8 @@ export const THEMES: ThemeDefinition[] = [
     },
   },
   {
-    id: 'kanagawa-lotus',
-    name: 'Kanagawa Lotus',
+    id: 'pergament',
+    name: 'Pergament',
     mode: 'light',
     tokens: {
       bgBase: '#F2ECBC',
@@ -282,8 +282,8 @@ export const THEMES: ThemeDefinition[] = [
     },
   },
   {
-    id: 'everforest-dark',
-    name: 'Everforest Dark',
+    id: 'furu',
+    name: 'Furu',
     mode: 'dark',
     tokens: {
       bgBase: '#2D353B',
@@ -326,8 +326,8 @@ export const THEMES: ThemeDefinition[] = [
     },
   },
   {
-    id: 'everforest-light',
-    name: 'Everforest Light',
+    id: 'bjork',
+    name: 'Bjørk',
     mode: 'light',
     tokens: {
       bgBase: '#FDF6E3',
@@ -370,8 +370,8 @@ export const THEMES: ThemeDefinition[] = [
     },
   },
   {
-    id: 'night-owl',
-    name: 'Night Owl',
+    id: 'morketid',
+    name: 'Mørketid',
     mode: 'dark',
     tokens: {
       bgBase: '#011627',
@@ -414,8 +414,8 @@ export const THEMES: ThemeDefinition[] = [
     },
   },
   {
-    id: 'light-owl',
-    name: 'Light Owl',
+    id: 'lysning',
+    name: 'Lysning',
     mode: 'light',
     tokens: {
       bgBase: '#FBFBFB',
@@ -458,8 +458,8 @@ export const THEMES: ThemeDefinition[] = [
     },
   },
   {
-    id: 'flexoki-dark',
-    name: 'Flexoki Dark',
+    id: 'tjare',
+    name: 'Tjære',
     mode: 'dark',
     tokens: {
       bgBase: '#100F0F',
@@ -502,8 +502,8 @@ export const THEMES: ThemeDefinition[] = [
     },
   },
   {
-    id: 'flexoki-light',
-    name: 'Flexoki Light',
+    id: 'lin',
+    name: 'Lin',
     mode: 'light',
     tokens: {
       bgBase: '#FFFCF0',
@@ -546,8 +546,8 @@ export const THEMES: ThemeDefinition[] = [
     },
   },
   {
-    id: 'hacker-green',
-    name: 'Hacker Green',
+    id: 'olivin',
+    name: 'Olivin',
     mode: 'dark',
     tokens: {
       bgBase: '#000000',
@@ -590,8 +590,8 @@ export const THEMES: ThemeDefinition[] = [
     },
   },
   {
-    id: 'hacker-blue',
-    name: 'Hacker Blue',
+    id: 'blais',
+    name: 'Blåis',
     mode: 'dark',
     tokens: {
       bgBase: '#00121F',
@@ -634,8 +634,8 @@ export const THEMES: ThemeDefinition[] = [
     },
   },
   {
-    id: 'hacker-red',
-    name: 'Hacker Red',
+    id: 'falurod',
+    name: 'Falurød',
     mode: 'dark',
     tokens: {
       bgBase: '#120000',
@@ -919,8 +919,39 @@ export const THEMES: ThemeDefinition[] = [
   },
 ];
 
+/**
+ * What each theme's id was before the set was renamed.
+ *
+ * The id is what a settings file stores, so a build from before the rename has one of
+ * these written to disk. Mapping them forward keeps a chosen theme chosen; without it
+ * every existing install would silently drop back to the default and look broken.
+ */
+const RENAMED_THEME_IDS: Record<string, string> = {
+  'ns3h-dark': 'midnatt',
+  'ns3h-light': 'dagslys',
+  'kanagawa-wave': 'skumring',
+  'kanagawa-dragon': 'skifer',
+  'kanagawa-lotus': 'pergament',
+  'everforest-dark': 'furu',
+  'everforest-light': 'bjork',
+  'night-owl': 'morketid',
+  'light-owl': 'lysning',
+  'flexoki-dark': 'tjare',
+  'flexoki-light': 'lin',
+  'hacker-green': 'olivin',
+  'hacker-blue': 'blais',
+  'hacker-red': 'falurod',
+};
+
+/** The id a stored value should be read — and rewritten — as. */
+export function resolveThemeId(id: unknown): string {
+  if (typeof id !== 'string') return DEFAULT_THEME_ID;
+  if (THEMES.some((theme) => theme.id === id)) return id;
+  return RENAMED_THEME_IDS[id] ?? DEFAULT_THEME_ID;
+}
+
 export function getTheme(id: string | undefined): ThemeDefinition {
-  return THEMES.find((theme) => theme.id === id) ?? THEMES[0];
+  return THEMES.find((theme) => theme.id === resolveThemeId(id)) ?? THEMES[0];
 }
 
 export function isKnownTheme(id: unknown): id is string {
