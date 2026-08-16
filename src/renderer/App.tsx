@@ -19,6 +19,7 @@ import { HostKeyModal } from './components/Modals/HostKeyModal.js';
 import { PasteConfirmModal } from './components/Modals/PasteConfirmModal.js';
 import { usePaste } from './stores/paste.js';
 import { paneLayout } from './stores/pane.js';
+import { LockScreen } from './components/Lock/LockScreen.js';
 import { StatusBar } from './components/StatusBar/StatusBar.js';
 import { terminals } from './terminals/registry.js';
 import { applyTheme } from './theme/apply.js';
@@ -29,6 +30,11 @@ const MIN_SIDEBAR = 15;
 const MAX_SIDEBAR = 35;
 
 export function App(): JSX.Element {
+  /**
+   * Null until main has been asked. Nothing is rendered in the meantime — a flash of the
+   * app before the lock appears would show the host list to someone who has not got in.
+   */
+  const [locked, setLocked] = useState<boolean | null>(null);
   const [isMac, setIsMac] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(20);
   const dragging = useRef(false);
@@ -51,6 +57,18 @@ export function App(): JSX.Element {
   const pendingPaste = usePaste((state) => state.pending);
 
   useEffect(() => {
+    void window.ns3h.lock
+      .status()
+      .then((status) => {
+        setLocked(status.locked);
+        // The lock screen is themed from main's answer: settings are not readable yet.
+        if (status.locked) applyTheme(status.theme);
+      })
+      .catch(() => setLocked(false));
+  }, []);
+
+  useEffect(() => {
+    if (locked !== false) return;
     void window.ns3h.platform().then(({ platform }) => setIsMac(platform === 'darwin'));
     void loadConfig();
 
@@ -60,7 +78,7 @@ export function App(): JSX.Element {
       confirmPaste: (text) => usePaste.getState().request(text),
       warnOnMultilinePaste: () => useConfig.getState().snapshot.settings.pasteWarnMultiline,
     });
-  }, [loadConfig]);
+  }, [loadConfig, locked]);
 
   useEffect(() => {
     const offHostKey = window.ns3h.hostKey.onPrompt(setHostKeyPrompt);
@@ -112,8 +130,8 @@ export function App(): JSX.Element {
   }, [setHostKeyPrompt, setAuthPrompt, applyStatus, setLogPath]);
 
   useEffect(() => {
-    applyTheme(themeId);
-  }, [themeId]);
+    if (locked === false) applyTheme(themeId);
+  }, [themeId, locked]);
 
   /**
    * A file dropped anywhere that is not a drop target makes Chromium navigate to it —
@@ -167,6 +185,10 @@ export function App(): JSX.Element {
    */
   const { showDock, showHome } = paneLayout(view, tabs.length);
   const showForm = !showDock;
+
+  // Nothing of the app exists for the renderer until main says it is open.
+  if (locked === null) return <div className={styles.app} />;
+  if (locked) return <LockScreen onUnlocked={() => setLocked(false)} />;
 
   return (
     <div className={styles.app}>

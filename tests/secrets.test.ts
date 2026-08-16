@@ -313,3 +313,67 @@ describe('reading a stored secret back', () => {
     expect(await without.revealSecret('crd_1', 'password')).toBeNull();
   });
 });
+
+describe('the launch-password reset', () => {
+  const host = (over: Partial<Host> = {}): Host => ({
+    id: 'hst_1',
+    name: 'core-sw-01',
+    protocol: 'ssh',
+    folderId: null,
+    address: '10.1.1.5',
+    port: 22,
+    credentialId: null,
+    inlineCredential: null,
+    logging: true,
+    serial: null,
+    createdAt: '2026-08-14T10:00:00Z',
+    ...over,
+  });
+
+  it('destroys every credential and secret, and keeps the hosts', async () => {
+    const service = new ConfigService(new SecretsStore(join(dir, 'secrets.enc'), fakeVault()), dir);
+    await service.saveCredential(
+      { id: 'crd_1', name: 'Net admin', type: 'password', username: 'admin', keyPath: null, hasPassphrase: false },
+      { password: 'hunter2' },
+    );
+    await service.saveHost(host({ id: 'hst_1', credentialId: 'crd_1' }));
+    await service.saveHost(
+      host({
+        id: 'hst_2',
+        name: 'edge-rtr-01',
+        inlineCredential: { type: 'password', username: 'admin', keyPath: null },
+      }),
+      { password: 'onthebox' },
+    );
+
+    const after = await service.resetCredentials();
+
+    expect(after.credentials.credentials).toEqual([]);
+    // The hosts are still there — that is the point of the reset rather than a wipe.
+    expect(after.hosts.hosts.map((entry) => entry.name).sort()).toEqual([
+      'core-sw-01',
+      'edge-rtr-01',
+    ]);
+    expect(after.hosts.hosts[0].address).toBe('10.1.1.5');
+    // But nothing that could authenticate survives, including the links to it.
+    expect(after.hosts.hosts.every((entry) => entry.credentialId === null)).toBe(true);
+    expect(after.hosts.hosts.every((entry) => entry.inlineCredential === null)).toBe(true);
+    expect(await service.revealSecret('crd_1', 'password')).toBeNull();
+    expect(await service.revealSecret('hst_2', 'password')).toBeNull();
+  });
+
+  it('leaves a host connectable by prompting, not broken', async () => {
+    const service = new ConfigService(new SecretsStore(join(dir, 'secrets.enc'), fakeVault()), dir);
+    await service.saveCredential(
+      { id: 'crd_1', name: 'Net admin', type: 'password', username: 'admin', keyPath: null, hasPassphrase: false },
+      { password: 'hunter2' },
+    );
+    await service.saveHost(host({ credentialId: 'crd_1' }));
+    await service.resetCredentials();
+
+    const resolved = await service.resolveHost('hst_1');
+    expect(resolved?.kind).toBe('ssh');
+    // No credential left to resolve, so the session asks — which is the graceful path.
+    expect(resolved?.kind === 'ssh' && resolved.target.auth.kind).toBe('prompt');
+  });
+});

@@ -1,7 +1,7 @@
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { BrowserWindow, app, shell } from 'electron';
-import { closeAllSessions, flushAllLogs, registerIpc } from './ipc/index.js';
+import { closeAllSessions, flushAllLogs, initialiseLock, registerIpc } from './ipc/index.js';
 import { dhShim } from './ssh/ssh2.js';
 
 const dirname = fileURLToPath(new URL('.', import.meta.url));
@@ -52,7 +52,9 @@ app.whenReady().then(() => {
     );
   }
   registerIpc();
-  createWindow();
+  // Read before the window exists: the app has to come up already sealed, rather than
+  // painting itself and then deciding.
+  void initialiseLock().finally(() => createWindow());
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();

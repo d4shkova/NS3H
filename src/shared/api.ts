@@ -90,6 +90,20 @@ export interface Ns3hApi {
     list(): Promise<SerialPortInfo[]>;
   };
 
+  /** The launch password (§ phase 15). Off unless the user turns it on. */
+  lock: {
+    status(): Promise<{ enabled: boolean; locked: boolean; theme: string }>;
+    /** True when the password matched and the app is now unlocked. */
+    unlock(password: string): Promise<boolean>;
+    /**
+     * Sets, changes, or removes the launch password. Changing or removing one needs the
+     * current password; `null` removes it.
+     */
+    set(password: string | null, current: string | null): Promise<{ ok: boolean; reason?: string }>;
+    /** Forgets every credential and secret, keeps the hosts, and unlocks. */
+    reset(): Promise<ConfigSnapshot>;
+  };
+
   transfer: {
     /**
      * A connection id: either an open SSH session, whose SFTP channel is reused, or a

@@ -112,6 +112,24 @@ export class ConfigService {
     return this.snapshot();
   }
 
+  /**
+   * Forgets every credential, and every secret behind one, while keeping the hosts.
+   *
+   * This is what the launch screen's reset does. Hosts survive with their addresses,
+   * ports, folders and logging intact; what goes is anything that could authenticate.
+   * Their credential links go with it — a host pointing at a credential that no longer
+   * exists would fail at connect rather than prompting, which is the wrong answer.
+   */
+  async resetCredentials(): Promise<ConfigSnapshot> {
+    await this.credentials.write({ version: 1, credentials: [] });
+    await this.hosts.update((file) => ({
+      ...file,
+      hosts: file.hosts.map((host) => ({ ...host, credentialId: null, inlineCredential: null })),
+    }));
+    await this.secrets.clearAll();
+    return this.snapshot();
+  }
+
   async saveSettings(patch: Partial<Settings>): Promise<ConfigSnapshot> {
     await this.settings.update((current) => applySettings(current, patch));
     return this.snapshot();

@@ -96,6 +96,14 @@ const api: Ns3hApi = {
     list: () => ipcRenderer.invoke(IpcChannel.serialList) as Promise<SerialPortInfo[]>,
   },
 
+  lock: {
+    status: () => ipcRenderer.invoke(IpcChannel.lockStatus),
+    unlock: (password: string) => ipcRenderer.invoke(IpcChannel.lockUnlock, password),
+    set: (password: string | null, current: string | null) =>
+      ipcRenderer.invoke(IpcChannel.lockSet, password, current),
+    reset: () => ipcRenderer.invoke(IpcChannel.lockReset),
+  },
+
   transfer: {
     remoteHome,
     remoteList: (sessionId: string, path: string) =>

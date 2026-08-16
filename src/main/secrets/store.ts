@@ -112,6 +112,15 @@ export class SecretsStore {
     if (changed) await this.persist(file);
   }
 
+  /**
+   * Empties the vault. Used by the launch-password reset, which is the one path that
+   * deliberately destroys credentials — someone who cannot get in should not be able to
+   * read them, but should be able to start again.
+   */
+  async clearAll(): Promise<void> {
+    await this.persist({ version: 1, entries: {} });
+  }
+
   private async read(): Promise<SecretsFileShape> {
     if (this.cache) return this.cache;
     try {

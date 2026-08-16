@@ -140,6 +140,34 @@ credential this install actually has, so the channel cannot be used to sweep the
 entries NS3H did not write, and it stays silent when there is no keychain. Revealing fills the
 field, so what you are looking at is what saving would store.
 
+## Launch password
+
+**Off by default.** Turned on in Settings, NS3H asks for a password before it opens, and the main
+process refuses every channel but the launch screen's until it has one — so the gate is not
+something the interface is trusted to enforce.
+
+**Be clear about what it is.** It locks the app; it does not encrypt anything. Secrets stay where
+they were, in the OS keychain, protected by the OS. This stops a person sitting down at an
+unlocked machine and reading passwords out of the forms — which is the risk the reveal above
+introduces, and the reason this exists. It does not stop anyone who can read the keychain itself,
+and nothing NS3H could do would.
+
+The password is stored as an Argon2id hash, in its own file rather than in settings — `settings`
+is part of what "Export configuration" writes, and that export is documented as safe to email, so
+a hash in it would be an offline guessing target sitting in someone's inbox. A damaged or
+unreadable hash locks people out rather than letting them in.
+
+**Reset** on the launch screen is the only way past a forgotten one, and it is deliberately
+destructive: every saved credential and every stored secret goes, the launch password with it.
+Hosts survive — names, addresses, ports, folders, logging — and fall back to prompting at connect,
+as an unsaved host does. Session logs, known host keys and private key files are untouched; NS3H
+only ever recorded where a key was, never a copy. The screen says all of that before it will do
+anything, and asks you to type `RESET`.
+
+The consequence worth stating plainly: someone at your keyboard cannot **read** your saved
+passwords without the launch password, but they can **destroy** them. That is the standard cost of
+having a way back in at all.
+
 ## Terminal clipboard
 
 Selecting text in a session copies it. Right-click pastes.

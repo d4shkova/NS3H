@@ -1,6 +1,7 @@
 import { useConfig } from '@renderer/stores/config.js';
 import { ThemePicker } from './ThemePicker.js';
 import { BackupSection } from './BackupSection.js';
+import { LaunchPassword } from './LaunchPassword.js';
 import styles from '../Forms/form.module.css';
 import own from './SettingsView.module.css';
 
@@ -95,6 +96,8 @@ export function SettingsView(): JSX.Element {
               : snapshot.secrets.reason}
           </p>
         </div>
+
+        <LaunchPassword />
 
         <BackupSection />
 
