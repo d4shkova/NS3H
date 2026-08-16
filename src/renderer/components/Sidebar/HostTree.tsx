@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { Folder, Host } from '@shared/config.js';
-import { useConfig } from '@renderer/stores/config.js';
+import { folderIsOpen, useConfig } from '@renderer/stores/config.js';
 import { useSessions } from '@renderer/stores/sessions.js';
 import styles from './HostTree.module.css';
 
@@ -14,7 +14,7 @@ export function HostTree(): JSX.Element {
   const snapshot = useConfig((state) => state.snapshot);
   const search = useConfig((state) => state.search);
   const setSearch = useConfig((state) => state.setSearch);
-  const expanded = useConfig((state) => state.expandedFolders);
+  const collapsed = useConfig((state) => state.snapshot.settings.collapsedFolders);
   const toggleFolder = useConfig((state) => state.toggleFolder);
   const setView = useConfig((state) => state.setView);
   const deleteHost = useConfig((state) => state.deleteHost);
@@ -91,7 +91,7 @@ export function HostTree(): JSX.Element {
   };
 
   const renderFolder = (folder: Folder) => {
-    const isOpen = expanded[folder.id] ?? true;
+    const isOpen = folderIsOpen(collapsed, folder.id);
     const contents = hostsIn(folder.id);
     // While searching, a folder with no matches is noise.
     if (search.trim() && contents.length === 0) return null;

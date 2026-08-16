@@ -1,6 +1,6 @@
 import { Fragment, useMemo, useState } from 'react';
 import type { Host } from '@shared/config.js';
-import { useConfig } from '@renderer/stores/config.js';
+import { folderIsOpen, useConfig } from '@renderer/stores/config.js';
 import { useSessions } from '@renderer/stores/sessions.js';
 import styles from './list.module.css';
 
@@ -9,8 +9,9 @@ export function HostsList(): JSX.Element {
   const setView = useConfig((state) => state.setView);
   const deleteHost = useConfig((state) => state.deleteHost);
   // Shared with the sidebar tree, so a folder collapsed in one is collapsed in the
-  // other — the two views are meant to show the same thing (§6.3).
-  const expanded = useConfig((state) => state.expandedFolders);
+  // other — the two views are meant to show the same thing (§6.3) — and stored in
+  // settings, so it is still folded on the next launch.
+  const collapsed = useConfig((state) => state.snapshot.settings.collapsedFolders);
   const toggleFolder = useConfig((state) => state.toggleFolder);
   const connectHost = useSessions((state) => state.connectHost);
   const [filter, setFilter] = useState('');
@@ -49,7 +50,7 @@ export function HostsList(): JSX.Element {
     const inFolder = (id: string | null) => shown.filter((host) => host.folderId === id);
     // Folders start open, and a filter overrides a collapse — a match hidden inside a
     // folded folder looks like the filter found nothing.
-    const isOpen = (key: string) => filtering || (expanded[key] ?? true);
+    const isOpen = (key: string) => filtering || folderIsOpen(collapsed, key);
 
     const grouped = folders
       .map((folder) => ({
@@ -70,7 +71,7 @@ export function HostsList(): JSX.Element {
           { key: '_ungrouped', name: 'Ungrouped', hosts: loose, open: isOpen('_ungrouped') },
         ]
       : grouped;
-  }, [shown, folders, filter, expanded]);
+  }, [shown, folders, filter, collapsed]);
 
   return (
     <div className={styles.wrap}>

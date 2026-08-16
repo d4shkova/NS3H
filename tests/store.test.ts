@@ -206,3 +206,35 @@ describe('settings', () => {
     expect(next.fontSize).toBe(DEFAULT_SETTINGS.fontSize);
   });
 });
+
+describe('folded host folders', () => {
+  it('remembers which folders were shut', () => {
+    expect(normaliseSettings({ collapsedFolders: ['fld_1', 'fld_2'] }).collapsedFolders).toEqual([
+      'fld_1',
+      'fld_2',
+    ]);
+  });
+
+  it('starts with everything open', () => {
+    // Collapsed rather than expanded, so an untouched install stores nothing at all.
+    expect(normaliseSettings({}).collapsedFolders).toEqual([]);
+  });
+
+  it('cleans up what a hand-edited file might contain', () => {
+    const settings = normaliseSettings({
+      collapsedFolders: ['fld_1', 'fld_1', '', 42, null, { id: 'fld_2' }, 'fld_3'],
+    });
+    // Duplicates and anything that is not a usable id are dropped, order preserved.
+    expect(settings.collapsedFolders).toEqual(['fld_1', 'fld_3']);
+  });
+
+  it('refuses to grow without limit', () => {
+    const many = Array.from({ length: 900 }, (_, index) => `fld_${index}`);
+    expect(normaliseSettings({ collapsedFolders: many }).collapsedFolders).toHaveLength(500);
+  });
+
+  it('is not a list of folders that exist, and does not pretend to be', () => {
+    // A folder can come back on an import; it should come back folded as it was left.
+    expect(normaliseSettings({ collapsedFolders: ['gone'] }).collapsedFolders).toEqual(['gone']);
+  });
+});

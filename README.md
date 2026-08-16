@@ -102,6 +102,11 @@ Folders on the Hosts screen fold: the heading is the control, and the state is s
 sidebar tree, so a folder collapsed in one is collapsed in the other. A filter overrides a
 collapse — a match hidden inside a folded folder looks like the filter found nothing.
 
+**A fold outlives the launch.** It is stored in settings as a list of the folders that are shut,
+rather than of the ones that are open: an untouched install stores nothing, and a folder that is
+deleted simply stops being mentioned. The fold is applied the moment it is clicked and written
+afterwards, so it never waits on a file, and two quick clicks cannot undo one another.
+
 **The sidebar shows one label at a time.** A host row carries its name; the address takes the
 name's place while the row is under the cursor or keyboard-focused. Both at once is what made that
 column feel cramped, and the address is the part you only want occasionally. A host whose name is

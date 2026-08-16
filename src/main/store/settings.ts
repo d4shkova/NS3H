@@ -3,6 +3,18 @@ import { resolveThemeId } from '@shared/themes.js';
 import { ConfigFile, configPath } from './paths.js';
 import { JsonStore } from './jsonStore.js';
 
+/**
+ * Folder ids from a file that may have been edited by hand: strings only, no duplicates,
+ * and a bound so a malformed file cannot grow this without limit. Ids that no longer
+ * match a folder are harmless and are left alone — a folder can come back on an import,
+ * and it should come back folded the way it was left.
+ */
+function folderIds(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  const ids = value.filter((id): id is string => typeof id === 'string' && id.length > 0);
+  return [...new Set(ids)].slice(0, 500);
+}
+
 function clamp(value: unknown, min: number, max: number, fallback: number): number {
   return typeof value === 'number' && Number.isFinite(value)
     ? Math.min(max, Math.max(min, value))
@@ -31,6 +43,7 @@ export function normaliseSettings(raw: unknown): Settings {
     scrollback: clamp(settings.scrollback, 100, 1_000_000, DEFAULT_SETTINGS.scrollback),
     // §6.2 — the sidebar is draggable between 15% and 35%.
     sidebarWidth: clamp(settings.sidebarWidth, 15, 35, DEFAULT_SETTINGS.sidebarWidth),
+    collapsedFolders: folderIds(settings.collapsedFolders),
     // Default on: pasting several lines into a live device is worth a pause.
     pasteWarnMultiline: settings.pasteWarnMultiline !== false,
   };

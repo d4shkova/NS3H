@@ -72,6 +72,13 @@ export interface Settings {
   sidebarWidth: number;
   /** Warn before pasting more than one line into a session (§ user preference). */
   pasteWarnMultiline: boolean;
+  /**
+   * Host folders the user has folded shut, by id.
+   *
+   * Collapsed rather than expanded: open is the default, so an untouched install stores
+   * nothing, and a folder that is deleted simply stops being mentioned.
+   */
+  collapsedFolders: string[];
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -83,6 +90,7 @@ export const DEFAULT_SETTINGS: Settings = {
   scrollback: 10000,
   sidebarWidth: 20,
   pasteWarnMultiline: true,
+  collapsedFolders: [],
 };
 
 export const EMPTY_HOSTS: HostsFile = { version: 1, folders: [], hosts: [] };
