@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import type { Protocol, SshAuth } from '@shared/types.js';
+import type { Protocol, SshAuth, SshTargetInput } from '@shared/types.js';
 import type { SerialConfig } from '@shared/config.js';
 import { useSessions } from '@renderer/stores/sessions.js';
+import { useConfig } from '@renderer/stores/config.js';
 import { DEFAULT_SERIAL, SerialFields } from './SerialFields.js';
 import styles from './ConnectForm.module.css';
 import { SecretInput } from './SecretInput.js';
@@ -9,6 +10,9 @@ import { SecretInput } from './SecretInput.js';
 type AuthMode = 'password' | 'key' | 'prompt';
 
 const DEFAULT_PORT: Record<Protocol, string> = { ssh: '22', telnet: '23', serial: '' };
+
+/** The "type it below" row of the credential picker, which is not a credential id. */
+const TYPE_BELOW = '';
 
 export function ConnectForm(): JSX.Element {
   const connect = useSessions((state) => state.connect);
@@ -18,12 +22,16 @@ export function ConnectForm(): JSX.Element {
   const [serial, setSerial] = useState<SerialConfig>(DEFAULT_SERIAL);
   const [address, setAddress] = useState('');
   const [port, setPort] = useState('22');
+  const credentials = useConfig((state) => state.snapshot.credentials.credentials);
+  const [credentialId, setCredentialId] = useState(TYPE_BELOW);
   const [username, setUsername] = useState('');
   const [mode, setMode] = useState<AuthMode>('password');
   const [password, setPassword] = useState('');
   const [keyPath, setKeyPath] = useState('');
   const [passphrase, setPassphrase] = useState('');
   const [error, setError] = useState<string | null>(null);
+
+  const usingCredential = credentialId !== TYPE_BELOW;
 
   const changeProtocol = (next: Protocol) => {
     setProtocol(next);
@@ -53,15 +61,20 @@ export function ConnectForm(): JSX.Element {
       return undefined;
     }
 
-    if (!username.trim()) return setError('Enter a username.');
-    if (mode === 'key' && !keyPath.trim()) return setError('Enter the path to a private key.');
+    if (!usingCredential) {
+      if (!username.trim()) return setError('Enter a username.');
+      if (mode === 'key' && !keyPath.trim()) return setError('Enter the path to a private key.');
+    }
 
-    const auth: SshAuth =
-      mode === 'key'
-        ? { kind: 'key', username: username.trim(), keyPath: keyPath.trim(), passphrase }
-        : mode === 'password'
-          ? { kind: 'password', username: username.trim(), password }
-          : { kind: 'prompt', username: username.trim() };
+    // A saved credential travels as its id: main resolves the username and the secret, so
+    // neither is read here and neither has to be typed again.
+    const auth: SshTargetInput['auth'] = usingCredential
+      ? { kind: 'saved', credentialId }
+      : ((mode === 'key'
+          ? { kind: 'key', username: username.trim(), keyPath: keyPath.trim(), passphrase }
+          : mode === 'password'
+            ? { kind: 'password', username: username.trim(), password }
+            : { kind: 'prompt', username: username.trim() }) satisfies SshAuth);
 
     try {
       await connect({ name: address.trim(), address: address.trim(), port: portNumber, auth });
@@ -118,6 +131,33 @@ export function ConnectForm(): JSX.Element {
         )}
 
         {protocol === 'ssh' && (<>
+        {/* A saved credential is offered before the fields it replaces: re-typing a
+            username and password that are already stored is the thing this avoids. */}
+        {credentials.length > 0 && (
+          <div className={styles.field}>
+            <label htmlFor="credential">Credential</label>
+            <select
+              id="credential"
+              value={credentialId}
+              onChange={(event) => setCredentialId(event.target.value)}
+            >
+              <option value={TYPE_BELOW}>Type one below</option>
+              {credentials.map((credential) => (
+                <option key={credential.id} value={credential.id}>
+                  {credential.name} ({credential.username})
+                </option>
+              ))}
+            </select>
+            {usingCredential && (
+              <p className={styles.hint}>
+                Its username and secret are read in the main process — the interface never
+                sees them. The connection itself is still not saved.
+              </p>
+            )}
+          </div>
+        )}
+
+        {!usingCredential && (<>
         <div className={styles.field}>
           <label htmlFor="username">Username</label>
           <input
@@ -164,6 +204,7 @@ export function ConnectForm(): JSX.Element {
             </div>
           </>
         )}
+        </>)}
 
         </>)}
 

@@ -4,7 +4,7 @@ import type {
   HostKeyPromptRequest,
   Protocol,
   SessionStatus,
-  SshTarget,
+  SshTargetInput,
 } from '@shared/types.js';
 import type { Host, SerialConfig } from '@shared/config.js';
 import { useConfig } from './config.js';
@@ -40,7 +40,7 @@ interface SessionState {
   authPrompts: Record<string, AuthPromptRequest | undefined>;
 
   setSection: (section: SidebarSection) => void;
-  connect: (target: SshTarget) => Promise<void>;
+  connect: (target: SshTargetInput) => Promise<void>;
   connectTelnet: (target: { name: string; address: string; port: number }) => Promise<void>;
   connectSerial: (name: string, config: SerialConfig) => Promise<void>;
   connectHost: (host: Host) => Promise<void>;
@@ -59,6 +59,20 @@ interface SessionState {
   setLogPath: (sessionId: string, logPath: string) => void;
   setHostKeyPrompt: (request: HostKeyPromptRequest | null) => void;
   setAuthPrompt: (sessionId: string, request: AuthPromptRequest | null) => void;
+}
+
+/**
+ * Who a tab says it is connected as. A saved credential is sent to main as an id alone,
+ * so its username is looked up from the configuration the renderer already has — the
+ * name is not a secret, and only the password ever needed keeping out of here.
+ */
+function usernameFor(target: SshTargetInput): string {
+  const auth = target.auth;
+  if (auth.kind !== 'saved') return auth.username;
+  const saved = useConfig
+    .getState()
+    .snapshot.credentials.credentials.find((entry) => entry.id === auth.credentialId);
+  return saved?.username ?? '';
 }
 
 export const useSessions = create<SessionState>((set, get) => ({
@@ -156,6 +170,8 @@ export const useSessions = create<SessionState>((set, get) => ({
   },
 
   connect: async (target) => {
+    // Read before the connection is made, so a tab always has a name to show: a saved
+    // credential is resolved in main, and the username never comes back from there.
     const { sessionId } = await window.ns3h.session.openSsh(target);
     useConfig.getState().setView({ kind: 'sessions' });
     set((state) => ({
@@ -166,7 +182,7 @@ export const useSessions = create<SessionState>((set, get) => ({
           name: target.name || target.address,
           address: target.address,
           port: target.port,
-          username: target.auth.username,
+          username: usernameFor(target),
           status: 'connecting',
           protocol: 'ssh',
         },

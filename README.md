@@ -44,6 +44,12 @@ OS keychain via `safeStorage`.
 
 All three protocols connect: SSH, telnet, and serial, from Quick connect or a saved host.
 
+**Quick connect can borrow a saved credential.** A one-off address does not have to mean a
+re-typed username and password: an SSH quick connection offers the saved credentials in a picker,
+and choosing one hides the fields it replaces. It travels to main as an id and is resolved there,
+so the renderer neither sends nor receives the secret — the same path a saved host's credential
+takes, and the same one the transfer connect form uses. The target itself is still not saved.
+
 Sessions are logged to disk automatically, cleaned for readability, and can be read back in the
 app: the Logs view lists one folder per device, and opening a session shows it in a virtualised
 viewer with search. A quarter-million-line log renders 120 rows at a time.
@@ -271,6 +277,13 @@ the default there is for Chromium to navigate to the file and replace the runnin
 A standalone target is **not saved**, the way Quick connect is not: it is used for that
 connection and forgotten. A saved credential can be picked instead of typing a password — the
 secret is resolved in main, so the renderer neither sends nor receives one.
+
+**Both panes shrink.** The two columns are `minmax(0, 1fr)` rather than `1fr`, which matters more
+than it looks: a bare `1fr` track will not go below the min-content width of what is in it, and a
+directory of firmware images sets that floor around 775px however narrow the window is. Since the
+body does not scroll, the excess was not reachable either — the remote pane simply sat past the
+right edge until the window was dragged wider, which is what a Windows user hit first, display
+scaling being what it is. File names already ellipsize; now they are allowed to.
 
 Telnet and serial sessions say so rather than offering a transfer they cannot carry.
 

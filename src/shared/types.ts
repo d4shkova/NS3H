@@ -16,6 +16,24 @@ export interface SshTarget {
   auth: SshAuth;
 }
 
+/**
+ * A saved credential, named rather than spelled out. Quick connect may send this instead
+ * of a username and secret; main resolves it into one of the `SshAuth` kinds above before
+ * anything dials, so the secret never travels to the renderer and back.
+ *
+ * Deliberately not a member of `SshAuth`: everything downstream of the IPC boundary takes
+ * an auth that is already resolved, and the type says so.
+ */
+export interface SavedCredentialAuth {
+  kind: 'saved';
+  credentialId: string;
+}
+
+/** What the renderer may ask to connect to — the resolved form is `SshTarget`. */
+export interface SshTargetInput extends Omit<SshTarget, 'auth'> {
+  auth: SshAuth | SavedCredentialAuth;
+}
+
 export interface TelnetTargetInput {
   name: string;
   address: string;
