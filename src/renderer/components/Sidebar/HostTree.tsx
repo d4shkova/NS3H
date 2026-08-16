@@ -54,26 +54,41 @@ export function HostTree(): JSX.Element {
   const rootHosts = matches.filter((host) => host.folderId === null);
   const hostsIn = (folderId: string) => matches.filter((host) => host.folderId === folderId);
 
-  const renderHost = (host: Host, indented: boolean) => (
-    <button
-      key={host.id}
-      type="button"
-      className={`${styles.host} ${indented ? styles.indent : ''}`}
-      onDoubleClick={() => {
-        setView({ kind: 'quick' });
-        void connectHost(host);
-      }}
-      onContextMenu={(event) => {
-        event.preventDefault();
-        setMenu({ x: event.clientX, y: event.clientY, host });
-      }}
-      title={`${host.name} — double-click to connect, right-click for more`}
-    >
-      <span className={styles.protocol}>{host.protocol}</span>
-      <span className={styles.name}>{host.name}</span>
-      {host.address && <span className={styles.address}>{host.address}</span>}
-    </button>
-  );
+  const renderHost = (host: Host, indented: boolean) => {
+    const address = host.protocol === 'serial' ? (host.serial?.path ?? '') : (host.address ?? '');
+    /**
+     * The row carries one thing at a time. Name and address side by side is what made
+     * this column feel cramped, and the address is the part you only want occasionally —
+     * so it takes the name's place on hover rather than sitting next to it.
+     *
+     * A host with nothing but an address for a name has nothing to swap to, and stays put
+     * rather than appearing to flicker between two identical labels.
+     */
+    const swaps = address !== '' && address !== host.name;
+
+    return (
+      <button
+        key={host.id}
+        type="button"
+        className={`${styles.host} ${indented ? styles.indent : ''}`}
+        onDoubleClick={() => {
+          setView({ kind: 'quick' });
+          void connectHost(host);
+        }}
+        onContextMenu={(event) => {
+          event.preventDefault();
+          setMenu({ x: event.clientX, y: event.clientY, host });
+        }}
+        title={`${host.name}${swaps ? ` · ${address}` : ''} — double-click to connect, right-click for more`}
+      >
+        <span className={styles.protocol}>{host.protocol}</span>
+        <span className={`${styles.label} ${swaps ? styles.swaps : ''}`}>
+          <span className={styles.friendly}>{host.name || address}</span>
+          {swaps && <span className={styles.address}>{address}</span>}
+        </span>
+      </button>
+    );
+  };
 
   const renderFolder = (folder: Folder) => {
     const isOpen = expanded[folder.id] ?? true;

@@ -115,19 +115,27 @@
   white-space: nowrap;
 }
 
-.name {
-  color: var(--text-primary);
+/*
+ * One label, two possible contents. The swap is done in CSS rather than in state: a row
+ * that re-rendered on every mouse-over would churn the whole tree for a hover.
+ */
+.label {
+  flex: 1;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+.friendly {
+  color: var(--text-primary);
+}
+
 .address {
-  color: var(--text-tertiary);
+  display: none;
+  color: var(--text-secondary);
   font-family: var(--font-mono);
   font-size: 11px;
-  margin-left: auto;
-  flex: none;
 }
 
 .indent {
@@ -174,4 +182,16 @@
   height: 1px;
   background: var(--border);
   margin: 5px 2px;
+}
+
+/* The address takes the name's place while the row is under the cursor, and while it is
+   keyboard-focused — the hover cannot be the only way to see it. */
+.host:hover .swaps .friendly,
+.host:focus-visible .swaps .friendly {
+  display: none;
+}
+
+.host:hover .swaps .address,
+.host:focus-visible .swaps .address {
+  display: inline;
 }

@@ -96,6 +96,11 @@ Folders on the Hosts screen fold: the heading is the control, and the state is s
 sidebar tree, so a folder collapsed in one is collapsed in the other. A filter overrides a
 collapse — a match hidden inside a folded folder looks like the filter found nothing.
 
+**The sidebar shows one label at a time.** A host row carries its name; the address takes the
+name's place while the row is under the cursor or keyboard-focused. Both at once is what made that
+column feel cramped, and the address is the part you only want occasionally. A host whose name is
+already its address has nothing to swap to and stays put.
+
 **With sessions open, Home is the sessions.** The card grid is what stands in when there is no
 work to go back to; once there are connections, Home lands on the dock and its tabs rather than
 on a menu to click through. Every card's destination is in the sidebar regardless. Sessions keep
