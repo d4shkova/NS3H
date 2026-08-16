@@ -45,7 +45,7 @@ export function App(): JSX.Element {
   const setHostKeyPrompt = useSessions((state) => state.setHostKeyPrompt);
   const setAuthPrompt = useSessions((state) => state.setAuthPrompt);
   const applyStatus = useSessions((state) => state.applyStatus);
-  const setLogPath = useSessions((state) => state.setLogPath);
+  const applyLogging = useSessions((state) => state.applyLogging);
   const connectError = useSessions((state) => state.connectError);
   const clearConnectError = useSessions((state) => state.clearConnectError);
   const view = useConfig((state) => state.view);
@@ -118,7 +118,7 @@ export function App(): JSX.Element {
     });
 
     const offLog = window.ns3h.session.onLog((event) =>
-      setLogPath(event.sessionId, event.logPath),
+      applyLogging(event.sessionId, event.logging, event.logPath),
     );
 
     return () => {
@@ -127,7 +127,7 @@ export function App(): JSX.Element {
       offStatus();
       offLog();
     };
-  }, [setHostKeyPrompt, setAuthPrompt, applyStatus, setLogPath]);
+  }, [setHostKeyPrompt, setAuthPrompt, applyStatus, applyLogging]);
 
   useEffect(() => {
     if (locked === false) applyTheme(themeId);

@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState } from 'react';
+import { Fragment, useCallback, useEffect, useState } from 'react';
 import type { LogFileInfo, LogFolderInfo } from '@shared/logs.js';
 import { useConfig } from '@renderer/stores/config.js';
 import styles from './list.module.css';
@@ -22,15 +22,26 @@ export function LogsList(): JSX.Element {
   const [open, setOpen] = useState<string | null>(null);
   const [sessions, setSessions] = useState<LogFileInfo[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  /**
+   * Re-reads the folder summaries. The spinner is only for the first read: showing it
+   * again after a delete would tear the table down and rebuild it under the cursor.
+   */
+  const reload = useCallback(async (spinner = false) => {
+    if (spinner) setLoading(true);
+    try {
+      setFolders(await window.ns3h.logs.folders());
+    } catch {
+      setFolders([]);
+    } finally {
+      if (spinner) setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    setLoading(true);
-    void window.ns3h.logs
-      .folders()
-      .then(setFolders)
-      .catch(() => setFolders([]))
-      .finally(() => setLoading(false));
-  }, [logDirectory]);
+    void reload(true);
+  }, [logDirectory, reload]);
 
   const openFolder = async (name: string) => {
     if (open === name) {
@@ -40,6 +51,40 @@ export function LogsList(): JSX.Element {
     }
     setOpen(name);
     setSessions(await window.ns3h.logs.sessions(name).catch(() => []));
+  };
+
+  const deleteFolder = async (folder: LogFolderInfo) => {
+    const count = folder.sessions === 1 ? '1 session log' : `${folder.sessions} session logs`;
+    const confirmed = window.confirm(
+      `Delete every log for "${folder.displayName}"? ${count} will be removed, ` +
+        'and this cannot be undone.',
+    );
+    if (!confirmed) return;
+    try {
+      await window.ns3h.logs.deleteFolder(folder.name);
+      setError(null);
+      if (open === folder.name) {
+        setOpen(null);
+        setSessions([]);
+      }
+      await reload();
+    } catch (cause) {
+      setError((cause as Error).message);
+    }
+  };
+
+  const deleteSession = async (folder: LogFolderInfo, session: LogFileInfo) => {
+    if (!window.confirm(`Delete "${session.name}"? This cannot be undone.`)) return;
+    try {
+      await window.ns3h.logs.deleteSession(folder.name, session.name);
+      setError(null);
+      // The row goes at once; the folder's totals are re-read so its count and size
+      // do not keep claiming a session that is no longer there.
+      setSessions((current) => current.filter((entry) => entry.path !== session.path));
+      await reload();
+    } catch (cause) {
+      setError((cause as Error).message);
+    }
   };
 
   if (!logDirectory) {
@@ -77,6 +122,8 @@ export function LogsList(): JSX.Element {
           </div>
         </div>
 
+        {error && <p className={styles.warning}>{error}</p>}
+
         {loading ? (
           <p className={styles.empty}>Reading the log directory…</p>
         ) : folders.length === 0 ? (
@@ -107,7 +154,23 @@ export function LogsList(): JSX.Element {
                     <td>{folder.sessions}</td>
                     <td className={styles.mono}>{formatBytes(folder.totalBytes)}</td>
                     <td>{formatWhen(folder.lastSession)}</td>
-                    <td className={styles.actions} />
+                    <td className={styles.actions}>
+                      {/* Hidden until the row is hovered or focused: removing every log
+                          for a device is not something to leave sitting under the cursor. */}
+                      <button
+                        type="button"
+                        className={`${styles.rowDelete} ${styles.danger}`}
+                        title={`Delete every log for ${folder.displayName}`}
+                        aria-label={`Delete every log for ${folder.displayName}`}
+                        onClick={(event) => {
+                          // The row itself folds the device open.
+                          event.stopPropagation();
+                          void deleteFolder(folder);
+                        }}
+                      >
+                        ✕
+                      </button>
+                    </td>
                   </tr>
                   {open === folder.name &&
                     sessions.map((session) => (
@@ -144,6 +207,15 @@ export function LogsList(): JSX.Element {
                             onClick={() => void window.ns3h.shell.reveal(session.path)}
                           >
                             Reveal
+                          </button>
+                          <button
+                            type="button"
+                            className={styles.danger}
+                            title={`Delete ${session.name}`}
+                            aria-label={`Delete ${session.name}`}
+                            onClick={() => void deleteSession(folder, session)}
+                          >
+                            ✕
                           </button>
                         </td>
                       </tr>

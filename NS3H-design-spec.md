@@ -399,6 +399,8 @@ Session logs will contain `show run` output — password hashes, SNMP community 
   --status-ok:    #3DD68C;
   --status-warn:  #F5A623;
   --status-error: #E5484D;
+  /* The recording light. Per theme, defaulting to --status-error. */
+  --status-record: #E5484D;
 
   --radius-sm: 5px;
   --radius-md: 8px;
@@ -439,7 +441,7 @@ Session logs will contain `show run` output — password hashes, SNMP community 
 
 **Credentials** — flat list, name plus type badge (`password` / `key`). Never displays a secret. Editing a password shows an empty field with placeholder "Unchanged."
 
-**Logs** — a tree mirroring the log directory: device folders, expanding to dated session files with size and duration. Selecting one opens it in the main pane as a read-only monospace viewer with search (Cmd/Ctrl+F) and a "Reveal in file manager" button. **The viewer must be virtualised** — a `show tech-support` log can be tens of megabytes.
+**Logs** — a tree mirroring the log directory: device folders, expanding to dated session files with size and duration. Selecting one opens it in the main pane as a read-only monospace viewer with search (Cmd/Ctrl+F) and a "Reveal in file manager" button. **The viewer must be virtualised** — a `show tech-support` log can be tens of megabytes. Each session row carries an `✕` that deletes that log; a device row carries one that deletes the whole folder, shown only while the row is hovered or focused. Both confirm first, and neither can reach outside the log directory — the renderer sends folder and file names, never paths.
 
 **Quick connect** — a form in the main pane, not a saved entry: protocol toggle, address, port, username, password/key, and a note that nothing will be saved. Logging is on and writes to `_quick/`. Recent quick connections persist in memory for the app session only.
 
@@ -448,6 +450,8 @@ Session logs will contain `show run` output — password hashes, SNMP community 
 Tabs across the top of the main pane. Dragging a tab onto the left, right, top, or bottom edge of the terminal area splits the pane in that direction (this is what `dockview` gives you). Each pane holds one session.
 
 Session toolbar (right-aligned, minimal): reconnect, clear, search, send break (serial only), close.
+
+**Logging toggle** — a toolbar button showing whether this session is being recorded: "Logging" with a lit `--status-record` dot, or "Not logging" with the lamp off. Clicking it starts or stops logging **for that session only**; the host's saved setting is never rewritten. Turning it back on opens a fresh file rather than reopening the last one, and nothing captured while it was off is backfilled — a file that silently skips a stretch would be worse than two that each say when they started.
 
 xterm theme derives from the tokens above:
 

@@ -22,6 +22,11 @@ export interface SessionTab {
   negotiationSummary?: string;
   /** Set once main has the log file open — drives the status bar indicator. */
   logPath?: string;
+  /**
+   * Whether this session is recording. Starts from the host's setting and follows the
+   * toolbar toggle from there; the saved host is not changed by toggling it.
+   */
+  logging: boolean;
 }
 
 export type SidebarSection =
@@ -45,6 +50,8 @@ interface SessionState {
   connectSerial: (name: string, config: SerialConfig) => Promise<void>;
   connectHost: (host: Host) => Promise<void>;
   sendBreak: (sessionId: string) => Promise<void>;
+  /** Starts or stops logging for one session. Returns the state it ended up in. */
+  setLogging: (sessionId: string, logging: boolean) => Promise<boolean>;
   connectError: string | null;
   clearConnectError: () => void;
   setActive: (id: string) => void;
@@ -56,7 +63,7 @@ interface SessionState {
     summary?: string,
     logPath?: string,
   ) => void;
-  setLogPath: (sessionId: string, logPath: string) => void;
+  applyLogging: (sessionId: string, logging: boolean, logPath: string | null) => void;
   setHostKeyPrompt: (request: HostKeyPromptRequest | null) => void;
   setAuthPrompt: (sessionId: string, request: AuthPromptRequest | null) => void;
 }
@@ -88,7 +95,7 @@ export const useSessions = create<SessionState>((set, get) => ({
 
   connectTelnet: async (target) => {
     try {
-      const { sessionId } = await window.ns3h.session.openTelnet(target);
+      const { sessionId, logging } = await window.ns3h.session.openTelnet(target);
       useConfig.getState().setView({ kind: 'sessions' });
       set((state) => ({
         connectError: null,
@@ -102,6 +109,7 @@ export const useSessions = create<SessionState>((set, get) => ({
             username: '',
             status: 'connecting',
             protocol: 'telnet',
+            logging,
           },
         ],
         activeId: sessionId,
@@ -113,7 +121,7 @@ export const useSessions = create<SessionState>((set, get) => ({
 
   connectSerial: async (name, config) => {
     try {
-      const { sessionId } = await window.ns3h.session.openSerial(name, config);
+      const { sessionId, logging } = await window.ns3h.session.openSerial(name, config);
       useConfig.getState().setView({ kind: 'sessions' });
       set((state) => ({
         connectError: null,
@@ -127,6 +135,7 @@ export const useSessions = create<SessionState>((set, get) => ({
             username: '',
             status: 'connecting',
             protocol: 'serial',
+            logging,
           },
         ],
         activeId: sessionId,
@@ -146,7 +155,7 @@ export const useSessions = create<SessionState>((set, get) => ({
 
   connectHost: async (host) => {
     try {
-      const { sessionId } = await window.ns3h.session.openHost(host.id);
+      const { sessionId, logging } = await window.ns3h.session.openHost(host.id);
       useConfig.getState().setView({ kind: 'sessions' });
       set((state) => ({
         connectError: null,
@@ -160,6 +169,7 @@ export const useSessions = create<SessionState>((set, get) => ({
             username: '',
             status: 'connecting',
             protocol: host.protocol,
+            logging,
           },
         ],
         activeId: sessionId,
@@ -172,7 +182,7 @@ export const useSessions = create<SessionState>((set, get) => ({
   connect: async (target) => {
     // Read before the connection is made, so a tab always has a name to show: a saved
     // credential is resolved in main, and the username never comes back from there.
-    const { sessionId } = await window.ns3h.session.openSsh(target);
+    const { sessionId, logging } = await window.ns3h.session.openSsh(target);
     useConfig.getState().setView({ kind: 'sessions' });
     set((state) => ({
       tabs: [
@@ -185,6 +195,7 @@ export const useSessions = create<SessionState>((set, get) => ({
           username: usernameFor(target),
           status: 'connecting',
           protocol: 'ssh',
+          logging,
         },
       ],
       activeId: sessionId,
@@ -222,10 +233,28 @@ export const useSessions = create<SessionState>((set, get) => ({
       ),
     })),
 
-  setLogPath: (sessionId, logPath) =>
+  applyLogging: (sessionId, logging, logPath) =>
     set((state) => ({
-      tabs: state.tabs.map((tab) => (tab.id === sessionId ? { ...tab, logPath } : tab)),
+      tabs: state.tabs.map((tab) =>
+        tab.id === sessionId ? { ...tab, logging, logPath: logPath ?? undefined } : tab,
+      ),
     })),
+
+  setLogging: async (sessionId, logging) => {
+    // Optimistic, then corrected by what main reports: the round trip includes opening
+    // a file, and a toggle that does not move until the disk answers reads as broken.
+    get().applyLogging(sessionId, logging, null);
+    try {
+      const result = await window.ns3h.session.setLogging(sessionId, logging);
+      get().applyLogging(sessionId, result.logging, result.logPath);
+      if (result.reason) set({ connectError: result.reason });
+      return result.logging;
+    } catch (cause) {
+      get().applyLogging(sessionId, !logging, null);
+      set({ connectError: (cause as Error).message });
+      return !logging;
+    }
+  },
 
   setHostKeyPrompt: (request) => set({ hostKeyPrompt: request }),
 

@@ -25,6 +25,12 @@ export interface ThemeTokens {
   statusOk: string;
   statusWarn: string;
   statusError: string;
+  /**
+   * The recording light — the dot on the session logging toggle and in the status bar.
+   * Optional: it falls back to `statusError`, which is a red in every theme, and is set
+   * only where a theme wants a different red for the best match against its palette.
+   */
+  recordDot?: string;
 }
 
 export interface TerminalPalette {

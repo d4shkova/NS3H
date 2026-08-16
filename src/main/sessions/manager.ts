@@ -5,6 +5,7 @@ import type {
   HostKeyPromptRequest,
   NoticeLevel,
   SessionInfo,
+  SessionLoggingResult,
   SshTarget,
 } from '@shared/types.js';
 import { IpcChannel } from '@shared/ipc.js';
@@ -47,6 +48,12 @@ interface Session {
    */
   pending: Buffer[];
   logging: boolean;
+  /**
+   * What this session would log under, remembered from the moment it connected so the
+   * toolbar can start logging later — including on a host whose setting is "off", which
+   * never opened a log at all.
+   */
+  descriptor?: SessionLogRequest;
 }
 
 export interface OpenSshOptions {
@@ -377,28 +384,114 @@ export class SessionManager {
     descriptor: Omit<SessionLogRequest, 'hostId'>,
   ): Promise<void> {
     const session = this.sessions.get(sessionId);
-    if (!session || !this.logs || !options.logging) return;
+    if (!session) return;
+
+    // Kept whether or not this session logs: the toolbar can turn logging on later,
+    // and the header it writes has to say the same things this one would have.
+    session.descriptor = { hostId: options.hostId, ...descriptor };
+    if (!session.logging) return;
 
     try {
-      const log = await this.logs.begin({ hostId: options.hostId, ...descriptor });
-      if (!log) return; // no log directory chosen yet
-
-      for (const chunk of session.pending) log.write(chunk);
-      session.pending = [];
-      session.log = log;
-      session.info.logPath = log.path;
-      // A dedicated event: re-emitting `status` would look like a second connect,
-      // and the renderer would print the connection banner again — mid-line, on top
-      // of whatever the device had already sent.
-      this.emit(IpcChannel.sessionLog, { sessionId, logPath: log.path });
+      // No log directory means nothing will ever open, so the session stops buffering
+      // rather than holding every byte of its output waiting for a file.
+      if (!(await this.openLog(sessionId))) this.stopLogging(sessionId);
     } catch (error) {
-      session.logging = false;
-      session.pending = [];
+      this.stopLogging(sessionId, error as Error);
+    }
+  }
+
+  /**
+   * Opens the session's log file and starts writing to it. Returns the path, or null
+   * when no log directory has been chosen — logging is blocked until it is (§4.3).
+   */
+  private async openLog(sessionId: string): Promise<string | null> {
+    const session = this.sessions.get(sessionId);
+    if (!session || !this.logs || !session.descriptor || session.log) return null;
+
+    const log = await this.logs.begin(session.descriptor);
+    if (!log) return null;
+
+    // Logging was turned off, or the session ended, while the file was opening.
+    if (!this.sessions.has(sessionId) || !session.logging) {
+      await log.close();
+      return null;
+    }
+
+    for (const chunk of session.pending) log.write(chunk);
+    session.pending = [];
+    session.log = log;
+    session.info.logPath = log.path;
+    // A dedicated event: re-emitting `status` would look like a second connect,
+    // and the renderer would print the connection banner again — mid-line, on top
+    // of whatever the device had already sent.
+    this.emit(IpcChannel.sessionLog, { sessionId, logPath: log.path, logging: true });
+    return log.path;
+  }
+
+  /** Turns logging off for a session, reporting why when it was not the user's doing. */
+  private stopLogging(sessionId: string, error?: Error): void {
+    const session = this.sessions.get(sessionId);
+    if (!session) return;
+
+    const log = session.log;
+    session.logging = false;
+    session.log = null;
+    session.pending = [];
+    session.info.logPath = undefined;
+    // Closed after the session has been detached from it, so output arriving during the
+    // final flush is not written to a file the user has just stopped.
+    void log?.close();
+
+    if (error) {
       this.emit(IpcChannel.sessionNotice, {
         sessionId,
         level: 'error',
-        text: `Session logging is off: ${(error as Error).message}`,
+        text: `Session logging is off: ${error.message}`,
       });
+    }
+    this.emit(IpcChannel.sessionLog, { sessionId, logPath: null, logging: false });
+  }
+
+  /**
+   * Starts or stops logging for one session, leaving the host's own setting alone
+   * (§5.1 — the saved setting is the default, not a lock).
+   *
+   * Turning it back on opens a fresh file rather than reopening the last one: the gap
+   * is real, and a single file that silently skips a few minutes would be worse than
+   * two that each say when they started. Nothing captured while logging was off is
+   * backfilled, for the same reason.
+   */
+  async setLogging(sessionId: string, logging: boolean): Promise<SessionLoggingResult> {
+    const session = this.sessions.get(sessionId);
+    if (!session) throw new Error('That session is no longer open.');
+
+    if (!logging) {
+      this.stopLogging(sessionId);
+      return { logging: false, logPath: null };
+    }
+
+    session.logging = true;
+    session.pending = [];
+    if (session.log) return { logging: true, logPath: session.log.path };
+
+    // Not connected yet: the log opens with the session, the way it would have.
+    if (!session.descriptor) {
+      this.emit(IpcChannel.sessionLog, { sessionId, logPath: null, logging: true });
+      return { logging: true, logPath: null };
+    }
+
+    try {
+      const path = await this.openLog(sessionId);
+      if (path) return { logging: true, logPath: path };
+      this.stopLogging(sessionId);
+      return {
+        logging: false,
+        logPath: null,
+        reason: 'No log directory has been chosen — pick one in Settings.',
+      };
+    } catch (error) {
+      this.stopLogging(sessionId, error as Error);
+      return { logging: false, logPath: null, reason: (error as Error).message };
     }
   }
 

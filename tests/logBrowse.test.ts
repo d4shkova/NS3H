@@ -2,7 +2,13 @@ import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { isSafeSegment, listLogFolders, listLogSessions } from '../src/main/logging/browse.js';
+import {
+  deleteLogFolder,
+  deleteLogSession,
+  isSafeSegment,
+  listLogFolders,
+  listLogSessions,
+} from '../src/main/logging/browse.js';
 
 let dir: string;
 
@@ -108,5 +114,65 @@ describe('session listing', () => {
     expect(isSafeSegment('..')).toBe(false);
     expect(isSafeSegment('a/b')).toBe(false);
     expect(isSafeSegment('')).toBe(false);
+  });
+});
+
+describe('deleting logs', () => {
+  it('removes one session and leaves the rest of the folder alone', async () => {
+    await seed(
+      'core-sw-01',
+      { '2026-08-14_101500.log': 'a', '2026-08-15_090000.log': 'bb' },
+      { version: 1, hostId: 'hst_c3d4', names: [{ name: 'core-sw-01', since: '2026-08-14' }] },
+    );
+
+    const removed = await deleteLogSession(dir, 'core-sw-01', '2026-08-14_101500.log');
+    expect(removed).toBe(join(dir, 'core-sw-01', '2026-08-14_101500.log'));
+
+    const remaining = await listLogSessions(dir, 'core-sw-01');
+    expect(remaining.map((session) => session.name)).toEqual(['2026-08-15_090000.log']);
+    // The folder keeps its identity, so what is left is still attributable to the host.
+    expect((await listLogFolders(dir))[0].hostId).toBe('hst_c3d4');
+  });
+
+  it('removes a device folder and everything in it', async () => {
+    await seed('core-sw-01', { '2026-08-14_101500.log': 'a' });
+    await seed('dist-sw-02', { '2026-08-14_101500.log': 'b' });
+
+    await deleteLogFolder(dir, 'core-sw-01');
+    expect((await listLogFolders(dir)).map((folder) => folder.name)).toEqual(['dist-sw-02']);
+  });
+
+  it('removes a quick-connect folder by its nested name', async () => {
+    await seed('_quick/10.1.1.99', { '2026-08-14_150200.log': 'x' });
+    await deleteLogFolder(dir, '_quick/10.1.1.99');
+    expect(await listLogFolders(dir)).toEqual([]);
+  });
+
+  it('refuses a folder that would escape the log directory', async () => {
+    for (const bad of ['../etc', '..', 'a/../../b', '/etc', 'C:\\Windows']) {
+      await expect(deleteLogFolder(dir, bad)).rejects.toThrow(/invalid/i);
+      await expect(deleteLogSession(dir, bad, '2026-08-14_101500.log')).rejects.toThrow(
+        /invalid/i,
+      );
+    }
+  });
+
+  it('deletes session logs only — not the folder metadata, and not a traversal', async () => {
+    await seed(
+      'core-sw-01',
+      { '2026-08-14_101500.log': 'a' },
+      { version: 1, hostId: 'hst_c3d4', names: [] },
+    );
+
+    for (const bad of ['.meta.json', '../core-sw-01/2026-08-14_101500.log', 'notes.txt', '']) {
+      await expect(deleteLogSession(dir, 'core-sw-01', bad)).rejects.toThrow(/invalid/i);
+    }
+    expect(await listLogSessions(dir, 'core-sw-01')).toHaveLength(1);
+    expect((await listLogFolders(dir))[0].hostId).toBe('hst_c3d4');
+  });
+
+  it('says so when there is no log directory at all', async () => {
+    await expect(deleteLogFolder(null, 'core-sw-01')).rejects.toThrow(/log directory/i);
+    await expect(deleteLogSession(null, 'core-sw-01', 'x.log')).rejects.toThrow(/log directory/i);
   });
 });

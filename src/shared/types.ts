@@ -88,10 +88,23 @@ export interface SessionDataEvent {
   data: Uint8Array;
 }
 
-/** Emitted once, when a session's log file opens. Not a status transition. */
+/**
+ * Emitted whenever a session's logging state changes: when its log file opens, and
+ * again whenever the user toggles logging for that session. Not a status transition.
+ */
 export interface SessionLogEvent {
   sessionId: string;
-  logPath: string;
+  /** The file being written, or null when logging is off for this session. */
+  logPath: string | null;
+  logging: boolean;
+}
+
+/** The answer to a logging toggle — what the session is actually doing now. */
+export interface SessionLoggingResult {
+  logging: boolean;
+  logPath: string | null;
+  /** Why the request could not be honoured, when `logging` is not what was asked for. */
+  reason?: string;
 }
 
 export type NoticeLevel = 'info' | 'warn' | 'error';
@@ -135,4 +148,6 @@ export interface AuthPromptRequest {
 
 export interface OpenSessionResult {
   sessionId: string;
+  /** Whether this session starts out logging — a saved host follows its own setting. */
+  logging: boolean;
 }

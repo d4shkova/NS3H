@@ -63,10 +63,11 @@
   color: var(--text-secondary);
 }
 
-/* §6.2 — a small red dot while the session is actively writing to disk. */
+/* §6.2 — a small red dot while the session is actively writing to disk. The same
+   per-theme colour the toolbar's recording light uses, so the two read as one state. */
 .recording {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--accent);
+  background: var(--status-record);
 }

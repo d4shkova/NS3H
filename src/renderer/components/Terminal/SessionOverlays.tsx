@@ -19,8 +19,10 @@ export function SessionOverlays({ showToolbar }: { showToolbar: boolean }): JSX.
   const prompt = useSessions((state) => (activeId ? state.authPrompts[activeId] : undefined));
   const setAuthPrompt = useSessions((state) => state.setAuthPrompt);
   const sendBreak = useSessions((state) => state.sendBreak);
+  const setLogging = useSessions((state) => state.setLogging);
   const setView = useConfig((state) => state.setView);
   const [breaking, setBreaking] = useState(false);
+  const [togglingLog, setTogglingLog] = useState(false);
 
   const tab = tabs.find((entry) => entry.id === activeId) ?? null;
   if (!tab) return null;
@@ -63,6 +65,30 @@ export function SessionOverlays({ showToolbar }: { showToolbar: boolean }): JSX.
             Files
           </button>
         )}
+        {/* Session-scoped: this starts and stops the recording for this connection
+            only, and never rewrites the host's saved setting. */}
+        <button
+          type="button"
+          className={`${styles.button} ${tab.logging ? styles.recordingOn : ''}`}
+          aria-pressed={tab.logging}
+          disabled={togglingLog || tab.status === 'closed' || tab.status === 'error'}
+          title={
+            tab.logging
+              ? `Recording this session to ${tab.logPath ?? 'disk'} — click to stop`
+              : 'This session is not being recorded — click to start logging it'
+          }
+          onClick={async () => {
+            setTogglingLog(true);
+            try {
+              await setLogging(tab.id, !tab.logging);
+            } finally {
+              setTogglingLog(false);
+            }
+          }}
+        >
+          <span className={`${styles.led} ${tab.logging ? styles.ledOn : ''}`} />
+          {tab.logging ? 'Logging' : 'Not logging'}
+        </button>
         <button
           type="button"
           className={styles.button}

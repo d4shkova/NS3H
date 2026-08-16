@@ -33,6 +33,52 @@
   cursor: not-allowed;
 }
 
+/*
+ * The logging toggle. It carries its own state, so it reads at a glance without being
+ * hovered: a lit dot means this session is being written to disk right now.
+ */
+.recordingOn {
+  color: var(--text-primary);
+}
+
+.led {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 6px;
+  vertical-align: middle;
+  border-radius: 50%;
+  /* Off: an unlit lamp, not a second colour to read. */
+  background: var(--text-tertiary);
+  opacity: 0.5;
+}
+
+.ledOn {
+  /* Per-theme, so the red sits against each palette rather than fighting it. */
+  background: var(--status-record);
+  opacity: 1;
+  box-shadow: 0 0 5px var(--status-record);
+}
+
+/* Stillness matters more than motion for the rest of the app, but a recording light
+   that does not breathe is easy to stop noticing. */
+@media (prefers-reduced-motion: no-preference) {
+  .ledOn {
+    animation: pulse 2.4s ease-in-out infinite;
+  }
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.55;
+  }
+}
+
 .prompt {
   position: absolute;
   left: 16px;
