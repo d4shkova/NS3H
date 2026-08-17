@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { BrowserWindow, app, shell } from 'electron';
 import { closeAllSessions, flushAllLogs, initialiseLock, registerIpc } from './ipc/index.js';
 import { dhShim } from './ssh/ssh2.js';
+import { flushWithDeadline } from './lifecycle.js';
 
 const dirname = fileURLToPath(new URL('.', import.meta.url));
 const isMac = process.platform === 'darwin';
@@ -67,16 +68,23 @@ app.on('window-all-closed', () => {
 
 let quitting = false;
 
-// §5.3 — logs flush on session close and on app quit. Quit is deferred until the
-// buffers are on disk, otherwise the last couple of seconds of a session are lost.
+/**
+ * §5.3 — logs flush on session close and on app quit. Quit is deferred until the
+ * buffers are on disk, otherwise the last couple of seconds of a session are lost.
+ *
+ * The second `quit` is scheduled with `setImmediate` rather than called outright. This
+ * handler has just cancelled a termination the OS is still processing, and a `quit`
+ * raised from inside that dispatch is dropped — on macOS the app then simply stays up,
+ * and the user has to ask a second time to get the quit that already ran its flush.
+ * Handing it to the next turn of the loop lets the cancellation finish first, so one
+ * Quit is one quit.
+ */
 app.on('before-quit', (event) => {
-  if (quitting) return;
+  if (quitting) return; // the flush has already run — let this one through
   event.preventDefault();
   quitting = true;
-  void flushAllLogs()
-    .catch((error) => console.error('NS3H: failed to flush logs on quit:', error))
-    .finally(() => {
-      closeAllSessions();
-      app.quit();
-    });
+  void flushWithDeadline(flushAllLogs).then(() => {
+    closeAllSessions();
+    setImmediate(() => app.quit());
+  });
 });
