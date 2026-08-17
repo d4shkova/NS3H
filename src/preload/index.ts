@@ -9,6 +9,7 @@ import type {
   OpenSessionResult,
   SessionDataEvent,
   SessionLogEvent,
+  SessionLoggingResult,
   SessionNoticeEvent,
   SerialPortInfo,
   SessionStatusEvent,
@@ -90,6 +91,10 @@ const api: Ns3hApi = {
     search: (path: string, query: string) =>
       ipcRenderer.invoke(IpcChannel.logsSearch, path, query),
     close: (path: string) => ipcRenderer.invoke(IpcChannel.logsClose, path),
+    deleteSession: (folder: string, name: string) =>
+      ipcRenderer.invoke(IpcChannel.logsDeleteSession, folder, name) as Promise<void>,
+    deleteFolder: (folder: string) =>
+      ipcRenderer.invoke(IpcChannel.logsDeleteFolder, folder) as Promise<void>,
   },
 
   serial: {
@@ -160,6 +165,12 @@ const api: Ns3hApi = {
       ipcRenderer.invoke(IpcChannel.sessionOpenSerial, name, config) as Promise<OpenSessionResult>,
     sendBreak: (sessionId: string) =>
       ipcRenderer.invoke(IpcChannel.sessionSendBreak, sessionId) as Promise<void>,
+    setLogging: (sessionId: string, logging: boolean) =>
+      ipcRenderer.invoke(
+        IpcChannel.sessionSetLogging,
+        sessionId,
+        logging,
+      ) as Promise<SessionLoggingResult>,
     write: (sessionId: string, data: string) =>
       ipcRenderer.invoke(IpcChannel.sessionWrite, sessionId, data) as Promise<void>,
     resize: (sessionId: string, cols: number, rows: number) =>

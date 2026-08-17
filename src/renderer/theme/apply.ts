@@ -17,6 +17,7 @@ const TOKEN_VARIABLES: Record<keyof ThemeDefinition['tokens'], string> = {
   statusOk: '--status-ok',
   statusWarn: '--status-warn',
   statusError: '--status-error',
+  recordDot: '--status-record',
 };
 
 let current: ThemeDefinition = getTheme(DEFAULT_THEME_ID);
@@ -45,8 +46,15 @@ export function applyTheme(id: string | undefined): ThemeDefinition {
 
   const root = document.documentElement;
   for (const [token, variable] of Object.entries(TOKEN_VARIABLES)) {
-    root.style.setProperty(variable, theme.tokens[token as keyof ThemeDefinition['tokens']]);
+    const value = theme.tokens[token as keyof ThemeDefinition['tokens']];
+    // An unset optional token keeps whatever the stylesheet declares, rather than
+    // writing `undefined` over a working default.
+    if (value) root.style.setProperty(variable, value);
   }
+
+  // The recording light defaults to the theme's error red, so a theme only has to name
+  // it when that red is not the one it wants blinking.
+  root.style.setProperty('--status-record', theme.tokens.recordDot ?? theme.tokens.statusError);
 
   // Lets CSS respond to light themes where a token alone is not enough — a form
   // control's own chrome, for instance.

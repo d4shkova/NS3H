@@ -12,7 +12,12 @@ import { normaliseCredential } from '../store/credentials.js';
 import { normaliseFolder, normaliseHost } from '../store/hosts.js';
 import { LogService } from '../logging/index.js';
 import { listSerialPorts } from '../serial/ports.js';
-import { listLogFolders, listLogSessions } from '../logging/browse.js';
+import {
+  deleteLogFolder,
+  deleteLogSession,
+  listLogFolders,
+  listLogSessions,
+} from '../logging/browse.js';
 import { LogReader } from '../logging/reader.js';
 import { listLocal } from '../ssh/sftp.js';
 import { TransferHub, isTransferConnectionId } from '../files/hub.js';
@@ -439,6 +444,23 @@ function registerConfigIpc(): void {
     logReader().close(requireString(path, 'path'));
   });
 
+  handle(IpcChannel.logsDeleteSession, async (_event, folder: unknown, name: unknown) => {
+    const path = await deleteLogSession(
+      (await config().snapshot()).settings.logDirectory,
+      requireString(folder, 'folder'),
+      requireString(name, 'name'),
+    );
+    // A viewer may still have it open; the handle goes with the file.
+    logReader().close(path);
+  });
+
+  handle(IpcChannel.logsDeleteFolder, async (_event, folder: unknown) => {
+    await deleteLogFolder(
+      (await config().snapshot()).settings.logDirectory,
+      requireString(folder, 'folder'),
+    );
+  });
+
   handle(IpcChannel.exportConfig, async (event) => {
     const window = BrowserWindow.fromWebContents(event.sender)!;
     const result = await dialog.showSaveDialog(window, {
@@ -516,11 +538,17 @@ export function registerIpc(): void {
 
     switch (resolved.kind) {
       case 'ssh':
-        return { sessionId: manager.openSsh(resolved.target, options) };
+        return { sessionId: manager.openSsh(resolved.target, options), logging: options.logging };
       case 'telnet':
-        return { sessionId: manager.openTelnet(resolved.target, options) };
+        return {
+          sessionId: manager.openTelnet(resolved.target, options),
+          logging: options.logging,
+        };
       case 'serial':
-        return { sessionId: manager.openSerial(resolved.name, resolved.serial, options) };
+        return {
+          sessionId: manager.openSerial(resolved.name, resolved.serial, options),
+          logging: options.logging,
+        };
     }
   });
 
@@ -528,14 +556,14 @@ export function registerIpc(): void {
     // Quick connections have no saved host, so they always log, under `_quick/`.
     const target = await parseTarget(raw, (id) => config().resolveCredential(id));
     const sessionId = managerFor(event.sender).openSsh(target, { logging: true });
-    return { sessionId };
+    return { sessionId, logging: true };
   });
 
   handle(IpcChannel.sessionOpenTelnet, (event, raw): OpenSessionResult => {
     const sessionId = managerFor(event.sender).openTelnet(parseTelnetTarget(raw), {
       logging: true,
     });
-    return { sessionId };
+    return { sessionId, logging: true };
   });
 
   handle(
@@ -547,12 +575,19 @@ export function registerIpc(): void {
         config,
         { logging: true },
       );
-      return { sessionId };
+      return { sessionId, logging: true };
     },
   );
 
   handle(IpcChannel.sessionSendBreak, (event, sessionId: unknown) =>
     managerFor(event.sender).sendBreak(requireString(sessionId, 'sessionId')),
+  );
+
+  handle(IpcChannel.sessionSetLogging, (event, sessionId: unknown, logging: unknown) =>
+    managerFor(event.sender).setLogging(
+      requireString(sessionId, 'sessionId'),
+      logging === true,
+    ),
   );
 
   handle(IpcChannel.serialList, () => listSerialPorts());

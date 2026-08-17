@@ -1,4 +1,4 @@
-import { readdir, readFile, stat } from 'node:fs/promises';
+import { readdir, readFile, rm, stat, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { META_FILE } from './index.js';
 
@@ -106,18 +106,56 @@ async function describeFolder(path: string, name: string): Promise<LogFolderInfo
   return { name, displayName, hostId, sessions, totalBytes, lastSession };
 }
 
+/**
+ * The directory a folder name stands for, refusing anything that is not a plain name
+ * under the log root. Every caller that turns renderer input into a path goes through
+ * here, so a crafted name cannot reach outside the log directory.
+ */
+function folderPath(root: string, folder: string): string {
+  const segments = folder.split('/');
+  if (!segments.every(isSafeSegment)) {
+    throw new Error('Invalid log folder.');
+  }
+  return join(root, ...segments);
+}
+
+/**
+ * Deletes one session log. Both parts are folder-relative and validated here — the
+ * renderer never hands a path across, and only a `.log` file can be removed, so the
+ * folder's `.meta.json` (which is what keeps old logs attributable) is out of reach.
+ *
+ * Returns the path that was removed, so the caller can drop any reader holding it open.
+ */
+export async function deleteLogSession(
+  root: string | null,
+  folder: string,
+  name: string,
+): Promise<string> {
+  if (!root) throw new Error('No log directory has been chosen.');
+  if (!isSafeSegment(name) || !name.endsWith('.log')) {
+    throw new Error('Invalid log file.');
+  }
+
+  const path = join(folderPath(root, folder), name);
+  await unlink(path);
+  return path;
+}
+
+/** Deletes a device folder and every session in it. */
+export async function deleteLogFolder(root: string | null, folder: string): Promise<string> {
+  if (!root) throw new Error('No log directory has been chosen.');
+  const path = folderPath(root, folder);
+  await rm(path, { recursive: true, force: true });
+  return path;
+}
+
 export async function listLogSessions(
   root: string | null,
   folder: string,
 ): Promise<LogFileInfo[]> {
   if (!root) return [];
 
-  const segments = folder.split('/');
-  if (!segments.every(isSafeSegment)) {
-    throw new Error('Invalid log folder.');
-  }
-
-  const path = join(root, ...segments);
+  const path = folderPath(root, folder);
   const files: LogFileInfo[] = [];
   for (const file of await readdir(path).catch(() => [])) {
     if (!file.endsWith('.log')) continue;

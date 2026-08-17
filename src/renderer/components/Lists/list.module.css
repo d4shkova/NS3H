@@ -193,6 +193,21 @@
   border-color: var(--border-focus);
 }
 
+/*
+ * A destructive action that only appears on the row under the cursor. Kept in the flow
+ * (opacity, not display) so the column does not change width as rows are hovered, and
+ * revealed on keyboard focus too — otherwise it is unreachable without a mouse.
+ */
+.rowDelete {
+  opacity: 0;
+  transition: opacity 100ms ease;
+}
+
+tr:hover .rowDelete,
+.rowDelete:focus-visible {
+  opacity: 1;
+}
+
 .danger:hover {
   border-color: var(--accent) !important;
   color: var(--accent) !important;

@@ -32,15 +32,30 @@ export type MainView =
   | { kind: 'credential-form'; credential: Credential | null }
   | { kind: 'settings' };
 
+/**
+ * Whether a view still counts as "the Logs screen" for the folder that is open on it.
+ * Reading a log is part of being on Logs; anywhere else is not.
+ */
+export function keepsLogFolderOpen(view: MainView): boolean {
+  return view.kind === 'logs' || view.kind === 'log-viewer';
+}
+
 interface ConfigState {
   snapshot: ConfigSnapshot;
   loaded: boolean;
   error: string | null;
   view: MainView;
   search: string;
+  /**
+   * The device folder open on the Logs screen, or null. Held here rather than in the
+   * screen itself so that opening a log and coming back lands where the user left off —
+   * reading a session and then deciding to delete it should not mean finding it twice.
+   */
+  expandedLogFolder: string | null;
 
   load: () => Promise<void>;
   setView: (view: MainView) => void;
+  setExpandedLogFolder: (folder: string | null) => void;
   setSearch: (search: string) => void;
   /** Folds a host folder, and remembers it — the state outlives the launch. */
   toggleFolder: (folderId: string) => void;
@@ -82,13 +97,20 @@ export const useConfig = create<ConfigState>((set, get) => {
     error: null,
     view: { kind: 'home' },
     search: '',
+    expandedLogFolder: null,
 
     load: async () => {
       await apply(() => window.ns3h.config.load());
       set({ loaded: true });
     },
 
-    setView: (view) => set({ view }),
+    // The Logs screen and a log opened from it are one place as far as the user is
+    // concerned, so the expanded device survives the trip and is dropped only when
+    // they go somewhere else.
+    setView: (view) =>
+      set(keepsLogFolderOpen(view) ? { view } : { view, expandedLogFolder: null }),
+
+    setExpandedLogFolder: (expandedLogFolder) => set({ expandedLogFolder }),
     setSearch: (search) => set({ search }),
     clearError: () => set({ error: null }),
 
@@ -111,7 +133,7 @@ export const useConfig = create<ConfigState>((set, get) => {
 
     saveHost: async (host, secrets) => {
       await apply(() => window.ns3h.config.saveHost(host, secrets));
-      if (!get().error) set({ view: { kind: 'hosts' } });
+      if (!get().error) get().setView({ kind: 'hosts' });
     },
 
     deleteHost: (hostId) => apply(() => window.ns3h.config.deleteHost(hostId)),
@@ -131,7 +153,7 @@ export const useConfig = create<ConfigState>((set, get) => {
 
     saveCredential: async (credential, secrets) => {
       await apply(() => window.ns3h.config.saveCredential(credential, secrets));
-      if (!get().error) set({ view: { kind: 'credentials' } });
+      if (!get().error) get().setView({ kind: 'credentials' });
     },
 
     deleteCredential: (credentialId) =>

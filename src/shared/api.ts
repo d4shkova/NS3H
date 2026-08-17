@@ -22,6 +22,7 @@ import type {
   OpenSessionResult,
   SessionDataEvent,
   SessionLogEvent,
+  SessionLoggingResult,
   SessionNoticeEvent,
   SerialPortInfo,
   SessionStatusEvent,
@@ -83,6 +84,10 @@ export interface Ns3hApi {
     lines(path: string, start: number, count: number): Promise<string[]>;
     search(path: string, query: string): Promise<LogMatch[]>;
     close(path: string): Promise<void>;
+    /** Removes one session log. Both parts are folder-relative, never a free path. */
+    deleteSession(folder: string, name: string): Promise<void>;
+    /** Removes a device folder and every session in it. */
+    deleteFolder(folder: string): Promise<void>;
   };
 
   serial: {
@@ -149,6 +154,11 @@ export interface Ns3hApi {
     openSerial(name: string, config: SerialConfig): Promise<OpenSessionResult>;
     /** Serial only: assert break for 250 ms (Cisco password recovery). */
     sendBreak(sessionId: string): Promise<void>;
+    /**
+     * Starts or stops logging for this session alone; the host's own setting is left
+     * untouched. Turning it back on opens a fresh file rather than reopening the last.
+     */
+    setLogging(sessionId: string, logging: boolean): Promise<SessionLoggingResult>;
     write(sessionId: string, data: string): Promise<void>;
     resize(sessionId: string, cols: number, rows: number): Promise<void>;
     close(sessionId: string): Promise<void>;

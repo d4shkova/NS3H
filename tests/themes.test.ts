@@ -41,6 +41,15 @@ describe('theme definitions', () => {
     }
   });
 
+  it('takes a usable colour for the recording light where one is named', () => {
+    // Optional: a theme sets it only when its error red is not the red it wants
+    // blinking, and the app falls back to statusError otherwise.
+    for (const theme of THEMES) {
+      if (theme.tokens.recordDot === undefined) continue;
+      expect(theme.tokens.recordDot, `${theme.id}.recordDot`).toMatch(COLOUR);
+    }
+  });
+
   it('defines the full 16-colour palette plus background, foreground and cursor', () => {
     for (const theme of THEMES) {
       for (const key of PALETTE_KEYS) {
