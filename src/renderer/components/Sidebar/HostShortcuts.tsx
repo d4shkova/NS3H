@@ -21,9 +21,11 @@ interface MenuState {
  * way round: it is always there, it is short, and it holds the devices worth one click
  * rather than all of them. Everything else lives on the Hosts page.
  */
-export function HostShortcuts(): JSX.Element {
+export function HostShortcuts(): JSX.Element | null {
   const hosts = useConfig((state) => state.snapshot.hosts.hosts);
   const usage = useConfig((state) => state.snapshot.settings.hostUsage);
+  const showFrequent = useConfig((state) => state.snapshot.settings.showFrequentHosts);
+  const showFavorites = useConfig((state) => state.snapshot.settings.showFavoriteHosts);
   const setView = useConfig((state) => state.setView);
   const setFavorite = useConfig((state) => state.setFavorite);
   const connectHost = useSessions((state) => state.connectHost);
@@ -42,7 +44,10 @@ export function HostShortcuts(): JSX.Element {
     };
   }, [menu]);
 
-  const { frequent, favorites } = useMemo(() => shortcutsFor(hosts, usage), [hosts, usage]);
+  const { frequent, favorites } = useMemo(
+    () => shortcutsFor(hosts, usage, { frequent: showFrequent, favorites: showFavorites }),
+    [hosts, usage, showFrequent, showFavorites],
+  );
 
   const open = (host: Host) => {
     setView({ kind: 'sessions' });
@@ -86,30 +91,38 @@ export function HostShortcuts(): JSX.Element {
     );
   };
 
+  // Both lists switched off in Settings: no column, rather than an empty box with two
+  // headings in it. The menu below belongs to a row, so it cannot be open either.
+  if (!showFrequent && !showFavorites) return null;
+
   return (
     <div className={styles.panel}>
-      <div className={styles.group}>
-        <div className={styles.groupTitle}>Frequent</div>
-        {frequent.length > 0 ? (
-          frequent.map(renderHost)
-        ) : (
-          <p className={styles.empty}>
-            The {FREQUENT_LIMIT} devices you connect to most appear here, busiest first.
-          </p>
-        )}
-      </div>
+      {showFrequent && (
+        <div className={styles.group}>
+          <div className={styles.groupTitle}>Frequent</div>
+          {frequent.length > 0 ? (
+            frequent.map(renderHost)
+          ) : (
+            <p className={styles.empty}>
+              The {FREQUENT_LIMIT} devices you connect to most appear here, busiest first.
+            </p>
+          )}
+        </div>
+      )}
 
-      <div className={styles.group}>
-        <div className={styles.groupTitle}>Favourites</div>
-        {favorites.length > 0 ? (
-          favorites.map(renderHost)
-        ) : (
-          <p className={styles.empty}>
-            Star a device here, or tick <em>Favourite</em> when editing it, to pin it to
-            this column.
-          </p>
-        )}
-      </div>
+      {showFavorites && (
+        <div className={styles.group}>
+          <div className={styles.groupTitle}>Favourites</div>
+          {favorites.length > 0 ? (
+            favorites.map(renderHost)
+          ) : (
+            <p className={styles.empty}>
+              Star a device here, or tick <em>Favourite</em> when editing it, to pin it to
+              this column.
+            </p>
+          )}
+        </div>
+      )}
 
       <button
         type="button"

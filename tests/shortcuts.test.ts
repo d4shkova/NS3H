@@ -94,3 +94,41 @@ describe('counting a connection', () => {
     expect(usage.hst_2).toEqual({ count: 4, lastAt: '2026-01-01T00:00:00Z' });
   });
 });
+
+describe('switching a list off', () => {
+  const hosts = [host('busy', { favorite: true }), host('quiet', { favorite: true }), host('plain')];
+  const usage = used({ busy: 6, plain: 2 });
+
+  it('drops the frequent list without touching the favourites', () => {
+    const { frequent, favorites } = shortcutsFor(hosts, usage, {
+      frequent: false,
+      favorites: true,
+    });
+    expect(frequent).toEqual([]);
+    // `busy` is a favourite too, and with Frequent gone this is the only place it can
+    // appear — deduplicating against a list that is not on screen would hide it.
+    expect(favorites.map((entry) => entry.id)).toEqual(['busy', 'quiet']);
+  });
+
+  it('drops the favourites without touching the frequent list', () => {
+    const { frequent, favorites } = shortcutsFor(hosts, usage, {
+      frequent: true,
+      favorites: false,
+    });
+    expect(frequent.map((entry) => entry.id)).toEqual(['busy', 'plain']);
+    expect(favorites).toEqual([]);
+  });
+
+  it('gives back nothing at all when both are off', () => {
+    expect(shortcutsFor(hosts, usage, { frequent: false, favorites: false })).toEqual({
+      frequent: [],
+      favorites: [],
+    });
+  });
+
+  it('shows both when it is not told otherwise', () => {
+    const { frequent, favorites } = shortcutsFor(hosts, usage);
+    expect(frequent.map((entry) => entry.id)).toEqual(['busy', 'plain']);
+    expect(favorites.map((entry) => entry.id)).toEqual(['quiet']);
+  });
+});

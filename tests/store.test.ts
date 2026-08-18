@@ -304,3 +304,45 @@ describe('how often a host is connected to', () => {
     expect(next.hostUsage).toEqual({ hst_1: { count: 2, lastAt: 'b' } });
   });
 });
+
+describe('the sidebar lists', () => {
+  it('shows both on an install that has never opened Settings', () => {
+    const settings = normaliseSettings({});
+    expect(settings.showFrequentHosts).toBe(true);
+    expect(settings.showFavoriteHosts).toBe(true);
+  });
+
+  it('remembers a list that was switched off', () => {
+    const settings = normaliseSettings({ showFrequentHosts: false, showFavoriteHosts: true });
+    expect(settings.showFrequentHosts).toBe(false);
+    expect(settings.showFavoriteHosts).toBe(true);
+  });
+
+  it('takes only a real false from a hand-edited file', () => {
+    const settings = normaliseSettings({ showFrequentHosts: 'no', showFavoriteHosts: 0 });
+    expect(settings.showFrequentHosts).toBe(true);
+    expect(settings.showFavoriteHosts).toBe(true);
+  });
+});
+
+describe('resetting the frequent list', () => {
+  it('forgets every count', () => {
+    const current = normaliseSettings({
+      hostUsage: { hst_1: { count: 4, lastAt: 'a' }, hst_2: { count: 9, lastAt: 'b' } },
+    });
+    expect(applySettings(current, { hostUsage: {} }).hostUsage).toEqual({});
+  });
+
+  it('leaves the rest of the settings alone', () => {
+    const current = normaliseSettings({
+      hostUsage: { hst_1: { count: 4, lastAt: 'a' } },
+      collapsedFolders: ['fld_1'],
+      showFavoriteHosts: false,
+      theme: 'skifer',
+    });
+    const next = applySettings(current, { hostUsage: {} });
+    expect(next.collapsedFolders).toEqual(['fld_1']);
+    expect(next.showFavoriteHosts).toBe(false);
+    expect(next.theme).toBe('skifer');
+  });
+});

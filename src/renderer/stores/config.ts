@@ -62,6 +62,8 @@ interface ConfigState {
   recordConnection: (hostId: string) => void;
   /** Pins or unpins a host without leaving the screen the toggle was clicked on. */
   setFavorite: (host: Host, favorite: boolean) => Promise<void>;
+  /** Forgets every connection count, so the frequent list starts again from nothing. */
+  resetHostUsage: () => Promise<void>;
   clearError: () => void;
 
   saveHost: (host: Host, secrets?: CredentialSecrets) => Promise<void>;
@@ -154,6 +156,10 @@ export const useConfig = create<ConfigState>((set, get) => {
     // is right for a form and wrong for a star clicked in the sidebar.
     setFavorite: (host, favorite) =>
       apply(() => window.ns3h.config.saveHost({ ...host, favorite })),
+
+    // Counts only. Favourites are a property of the host and survive this — a list you
+    // curated by hand is not history, and clearing history should not clear it.
+    resetHostUsage: () => apply(() => window.ns3h.config.saveSettings({ hostUsage: {} })),
 
     saveHost: async (host, secrets) => {
       await apply(() => window.ns3h.config.saveHost(host, secrets));

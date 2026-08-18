@@ -101,6 +101,10 @@ export interface Settings {
    * exports, and it should not churn every time a session is opened.
    */
   hostUsage: Record<string, HostUsage>;
+  /** Whether the sidebar lists the hosts connected to most often. */
+  showFrequentHosts: boolean;
+  /** Whether the sidebar lists the hosts marked as favourites. */
+  showFavoriteHosts: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -114,6 +118,10 @@ export const DEFAULT_SETTINGS: Settings = {
   pasteWarnMultiline: true,
   collapsedFolders: [],
   hostUsage: {},
+  // Both on: the column is the reason the host tree left the sidebar, and an install
+  // that has never opened Settings should have it.
+  showFrequentHosts: true,
+  showFavoriteHosts: true,
 };
 
 export const EMPTY_HOSTS: HostsFile = { version: 1, folders: [], hosts: [] };

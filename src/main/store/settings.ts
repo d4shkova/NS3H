@@ -72,6 +72,9 @@ export function normaliseSettings(raw: unknown): Settings {
     sidebarWidth: clamp(settings.sidebarWidth, 15, 35, DEFAULT_SETTINGS.sidebarWidth),
     collapsedFolders: folderIds(settings.collapsedFolders),
     hostUsage: hostUsage(settings.hostUsage),
+    // On unless the file says otherwise, like the paste warning below.
+    showFrequentHosts: settings.showFrequentHosts !== false,
+    showFavoriteHosts: settings.showFavoriteHosts !== false,
     // Default on: pasting several lines into a live device is worth a pause.
     pasteWarnMultiline: settings.pasteWarnMultiline !== false,
   };

@@ -119,6 +119,12 @@ rather than in the hosts file, so counting a connection never rewrites the file 
 and exports, and a count is only taken once a session actually opens — a host that cannot be
 reached does not climb the list for being tried repeatedly.
 
+Either list can be switched off in Settings → Sidebar, and the frequent one can be reset there —
+counts only, since favourites are a list curated by hand rather than history. With both off the
+column is not there at all rather than an empty box with two headings in it. Switching Frequent
+off also stops the favourites being deduplicated against it: with nothing above them to repeat,
+a starred host that is also a busy one appears in the only place left for it.
+
 Folders on the Hosts screen fold: the heading is the control. A filter overrides a collapse — a
 match hidden inside a folded folder looks like the filter found nothing. Folders are also made
 there, next to **Add host**, now that the sidebar holds shortcuts rather than the tree.
@@ -151,6 +157,20 @@ running (and logging) behind whatever else is on screen.
 The two tabbed areas are deliberately separate: terminals live in the session dock, file
 transfers live on their own screen with their own tabs, and neither competes with the other for
 the pane.
+
+## Settings
+
+Six groups behind a rail — Session logs, Appearance, Sidebar, Terminal, Security, Backup —
+rather than one column with everything in it. Each group is sized to fit a window without
+scrolling, so finding a control is reading six labels instead of scrolling past every section
+above the one you want. The rail says what is in each group, which is the part that does the
+work: "where is that setting" is answered on screen. Below about 560px of pane the rail sits
+above the panel instead of beside it, since the sidebar can be dragged out to a third of the
+window.
+
+The theme picker is why this could not stay stacked. Twenty-three previewed palettes sit
+between anything above them and anything below, and every trip to Backup or the launch password
+went past all of them.
 
 ## Secrets on screen
 
