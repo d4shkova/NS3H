@@ -68,6 +68,9 @@ export function normaliseHost(raw: unknown): Host | null {
     credentialId,
     inlineCredential: credentialId ? null : inlineCredential,
     logging: host.logging !== false,
+    // Off unless the file says otherwise — a host from before favourites existed is not
+    // one, and neither is one written by an older version.
+    favorite: host.favorite === true,
     serial: protocol === 'serial' ? normaliseSerial(host.serial) : null,
     createdAt: asString(host.createdAt, new Date().toISOString()),
   };

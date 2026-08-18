@@ -13,8 +13,13 @@ export function HostsList(): JSX.Element {
   // settings, so it is still folded on the next launch.
   const collapsed = useConfig((state) => state.snapshot.settings.collapsedFolders);
   const toggleFolder = useConfig((state) => state.toggleFolder);
+  const saveFolder = useConfig((state) => state.saveFolder);
+  const setFavorite = useConfig((state) => state.setFavorite);
   const connectHost = useSessions((state) => state.connectHost);
   const [filter, setFilter] = useState('');
+  // Electron does not implement window.prompt(), so folder naming is inline. This lives
+  // here now that the sidebar holds shortcuts rather than the whole tree.
+  const [newFolder, setNewFolder] = useState<string | null>(null);
 
   const { hosts, folders } = snapshot.hosts;
 
@@ -84,14 +89,50 @@ export function HostsList(): JSX.Element {
               connecting never sends a secret to the interface.
             </p>
           </div>
-          <button
-            type="button"
-            className={styles.primary}
-            onClick={() => setView({ kind: 'host-form', host: null })}
-          >
-            Add host
-          </button>
+          <div className={styles.headerActions}>
+            <button
+              type="button"
+              className={styles.secondary}
+              onClick={() => setNewFolder((current) => (current === null ? '' : null))}
+            >
+              Add folder
+            </button>
+            <button
+              type="button"
+              className={styles.primary}
+              onClick={() => setView({ kind: 'host-form', host: null })}
+            >
+              Add host
+            </button>
+          </div>
         </div>
+
+        {newFolder !== null && (
+          <form
+            className={styles.newFolder}
+            onSubmit={(event) => {
+              event.preventDefault();
+              const name = newFolder.trim();
+              if (!name) return;
+              void saveFolder({ id: '', name, parentId: null });
+              setNewFolder(null);
+            }}
+          >
+            <input
+              autoFocus
+              value={newFolder}
+              placeholder="Folder name"
+              onChange={(event) => setNewFolder(event.target.value)}
+              onKeyDown={(event) => event.key === 'Escape' && setNewFolder(null)}
+            />
+            <button type="button" className={styles.secondary} onClick={() => setNewFolder(null)}>
+              Cancel
+            </button>
+            <button type="submit" className={styles.primary}>
+              Create
+            </button>
+          </form>
+        )}
 
         <input
           className={styles.filter}
@@ -149,7 +190,22 @@ export function HostsList(): JSX.Element {
                   ) : (
                     group.hosts.map((host) => (
                       <tr key={host.id} onDoubleClick={() => void connectHost(host)}>
-                        <td className={`${styles.name} ${styles.grouped}`}>{host.name}</td>
+                        <td className={`${styles.name} ${styles.grouped}`}>
+                          <button
+                            type="button"
+                            className={`${styles.star} ${host.favorite ? styles.starred : ''}`}
+                            aria-pressed={host.favorite}
+                            title={
+                              host.favorite
+                                ? 'Remove from favourites'
+                                : 'Add to favourites — pins it to the sidebar'
+                            }
+                            onClick={() => void setFavorite(host, !host.favorite)}
+                          >
+                            {host.favorite ? '★' : '☆'}
+                          </button>
+                          {host.name}
+                        </td>
                         <td className={styles.mono}>{host.protocol}</td>
                         <td className={styles.mono}>
                           {host.protocol === 'serial'

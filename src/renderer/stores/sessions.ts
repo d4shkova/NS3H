@@ -157,6 +157,9 @@ export const useSessions = create<SessionState>((set, get) => ({
     try {
       const { sessionId, logging } = await window.ns3h.session.openHost(host.id);
       useConfig.getState().setView({ kind: 'sessions' });
+      // Counted once the session exists, so a host that cannot be opened does not climb
+      // the sidebar for being tried repeatedly.
+      useConfig.getState().recordConnection(host.id);
       set((state) => ({
         connectError: null,
         tabs: [

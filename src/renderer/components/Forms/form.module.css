@@ -70,6 +70,12 @@
   color: var(--text-secondary);
 }
 
+/* A toggle whose explanation follows it: the hint belongs to the row, not to the gap
+   before the next control. */
+.toggleTight {
+  margin-bottom: 0;
+}
+
 .toggleRow input {
   width: auto;
   accent-color: var(--accent);

@@ -1,0 +1,181 @@
+/*
+ * Sized by its contents but allowed to give way: with a long favourites list it scrolls
+ * rather than pushing the section body below it off the bottom of the column.
+ */
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 12px 10px 14px;
+  border-top: 1px solid var(--border);
+  flex: 0 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.groupTitle {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  padding: 0 6px 6px;
+}
+
+/* The row is the host button plus its star; only the button is the connect target. */
+.row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  border-radius: var(--radius-sm);
+  min-width: 0;
+}
+
+.row:hover {
+  background: var(--bg-hover);
+}
+
+.host {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  flex: 1;
+  min-width: 0;
+  padding: 5px 6px;
+  text-align: left;
+  border-radius: var(--radius-sm);
+}
+
+.protocol {
+  color: var(--text-tertiary);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  flex: none;
+  /* Wide enough for TELNET and SERIAL, as in the host tree this replaced. */
+  width: 46px;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+/*
+ * One label, two possible contents. The swap is done in CSS rather than in state: a row
+ * that re-rendered on every mouse-over would churn the column for a hover.
+ */
+.label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.friendly {
+  color: var(--text-primary);
+}
+
+.address {
+  display: none;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+/* The address takes the name's place while the row is under the cursor, and while it is
+   keyboard-focused — the hover cannot be the only way to see it. */
+.host:hover .swaps .friendly,
+.host:focus-visible .swaps .friendly {
+  display: none;
+}
+
+.host:hover .swaps .address,
+.host:focus-visible .swaps .address {
+  display: inline;
+}
+
+/*
+ * Kept in the flow rather than hidden (opacity, not display), so the name column does
+ * not change width as rows are hovered. A starred host shows its star always — that is
+ * the state it is in, not a control that appears.
+ */
+.star {
+  flex: none;
+  width: 22px;
+  padding: 4px 0;
+  border-radius: var(--radius-sm);
+  color: var(--text-tertiary);
+  font-size: 12px;
+  opacity: 0;
+  transition: opacity 100ms ease;
+}
+
+.starred,
+.row:hover .star,
+.star:focus-visible {
+  opacity: 1;
+}
+
+.starred {
+  color: var(--accent);
+}
+
+.star:hover {
+  color: var(--accent);
+  background: var(--bg-elevated);
+}
+
+.empty {
+  color: var(--text-tertiary);
+  line-height: 1.5;
+  padding: 2px 6px 4px;
+  font-size: 11.5px;
+}
+
+.empty em {
+  font-style: normal;
+  color: var(--text-secondary);
+}
+
+.all {
+  align-self: flex-start;
+  padding: 4px 6px;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-size: 11.5px;
+}
+
+.all:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.menu {
+  position: fixed;
+  z-index: 50;
+  min-width: 190px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 5px;
+  box-shadow: 0 14px 36px rgb(0 0 0 / 55%);
+}
+
+.menuItem {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 7px 10px;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+}
+
+.menuItem:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}

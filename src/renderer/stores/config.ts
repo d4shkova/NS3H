@@ -10,6 +10,7 @@ import {
   type Settings,
 } from '@shared/config.js';
 import type { CredentialSecrets } from '@shared/api.js';
+import { countConnection } from './shortcuts.js';
 
 /** Open unless the user has folded it — the shape the setting is stored in. */
 export function folderIsOpen(collapsed: string[], folderId: string): boolean {
@@ -45,7 +46,6 @@ interface ConfigState {
   loaded: boolean;
   error: string | null;
   view: MainView;
-  search: string;
   /**
    * The device folder open on the Logs screen, or null. Held here rather than in the
    * screen itself so that opening a log and coming back lands where the user left off —
@@ -56,9 +56,14 @@ interface ConfigState {
   load: () => Promise<void>;
   setView: (view: MainView) => void;
   setExpandedLogFolder: (folder: string | null) => void;
-  setSearch: (search: string) => void;
   /** Folds a host folder, and remembers it — the state outlives the launch. */
   toggleFolder: (folderId: string) => void;
+  /** Counts one connection to a saved host — what the sidebar's frequent list ranks by. */
+  recordConnection: (hostId: string) => void;
+  /** Pins or unpins a host without leaving the screen the toggle was clicked on. */
+  setFavorite: (host: Host, favorite: boolean) => Promise<void>;
+  /** Forgets every connection count, so the frequent list starts again from nothing. */
+  resetHostUsage: () => Promise<void>;
   clearError: () => void;
 
   saveHost: (host: Host, secrets?: CredentialSecrets) => Promise<void>;
@@ -96,7 +101,6 @@ export const useConfig = create<ConfigState>((set, get) => {
     loaded: false,
     error: null,
     view: { kind: 'home' },
-    search: '',
     expandedLogFolder: null,
 
     load: async () => {
@@ -111,7 +115,6 @@ export const useConfig = create<ConfigState>((set, get) => {
       set(keepsLogFolderOpen(view) ? { view } : { view, expandedLogFolder: null }),
 
     setExpandedLogFolder: (expandedLogFolder) => set({ expandedLogFolder }),
-    setSearch: (search) => set({ search }),
     clearError: () => set({ error: null }),
 
     toggleFolder: (folderId) => {
@@ -130,6 +133,33 @@ export const useConfig = create<ConfigState>((set, get) => {
         .saveSettings({ collapsedFolders: next })
         .catch((cause: Error) => set({ error: cause.message }));
     },
+
+    /**
+     * Applied locally first and written afterwards, the way a fold is: the sidebar
+     * should reorder as the session opens rather than when the file comes back, and a
+     * second connection landing before the first write returns would otherwise compute
+     * its count from stale state and lose one.
+     */
+    recordConnection: (hostId) => {
+      const next = countConnection(get().snapshot.settings.hostUsage, hostId);
+
+      set((state) => ({
+        snapshot: { ...state.snapshot, settings: { ...state.snapshot.settings, hostUsage: next } },
+      }));
+
+      void window.ns3h.config
+        .saveSettings({ hostUsage: next })
+        .catch((cause: Error) => set({ error: cause.message }));
+    },
+
+    // Deliberately not saveHost: that returns to the hosts list when it is done, which
+    // is right for a form and wrong for a star clicked in the sidebar.
+    setFavorite: (host, favorite) =>
+      apply(() => window.ns3h.config.saveHost({ ...host, favorite })),
+
+    // Counts only. Favourites are a property of the host and survive this — a list you
+    // curated by hand is not history, and clearing history should not clear it.
+    resetHostUsage: () => apply(() => window.ns3h.config.saveSettings({ hostUsage: {} })),
 
     saveHost: async (host, secrets) => {
       await apply(() => window.ns3h.config.saveHost(host, secrets));

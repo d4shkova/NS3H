@@ -1,6 +1,6 @@
 import { useSessions, type SidebarSection } from '@renderer/stores/sessions.js';
 import { useConfig } from '@renderer/stores/config.js';
-import { HostTree } from './HostTree.js';
+import { HostShortcuts } from './HostShortcuts.js';
 import { CredentialList } from './CredentialList.js';
 import styles from './Sidebar.module.css';
 
@@ -40,6 +40,11 @@ export function Sidebar(): JSX.Element {
         ))}
       </nav>
 
+      {/* Always on screen, whatever the section. This used to be the host tree, and only
+          while the Hosts page was open — which meant the same devices were in the column
+          and in the pane at once, and the column was empty the rest of the time. */}
+      <HostShortcuts />
+
       <div className={styles.body}>
         {configError && (
           <p className={styles.error} onClick={clearError} role="alert">
@@ -53,7 +58,12 @@ export function Sidebar(): JSX.Element {
             them; they keep running whatever else is on screen.
           </p>
         )}
-        {section === 'hosts' && <HostTree />}
+        {section === 'hosts' && (
+          <p className={styles.placeholder}>
+            The full tree — folders, search, and every saved device — is in the main pane.
+            This column keeps the ones you reach for.
+          </p>
+        )}
         {section === 'credentials' && <CredentialList />}
         {section === 'logs' && (
           <p className={styles.placeholder}>
