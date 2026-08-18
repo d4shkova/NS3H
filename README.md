@@ -36,8 +36,9 @@ password / public-key / keyboard-interactive authentication with inline re-promp
 trust-on-first-use with a changed-key comparison modal, and a live xterm.js session with a WebGL
 renderer.
 
-Saved hosts and credentials have full CRUD from the sidebar: a folder tree with search, a
-credentials list, and add/edit forms with inline per-field validation. Double-click a host to
+Saved hosts and credentials have full CRUD: the Hosts screen carries the folders, the filter and
+the add/edit forms with inline per-field validation, and the sidebar carries a credentials list
+and a shortlist of the hosts worth one click. Double-click a host to
 connect — its credential and secret are resolved in the main process, so connecting never sends a
 secret to the renderer. Config persists in `~/.config/ns3h/` (or the platform equivalent), with secrets in the
 OS keychain via `safeStorage`.
@@ -104,9 +105,23 @@ With nothing connected, the app opens on a card grid — Quick connect, Hosts, C
 File transfer — each showing live counts, and each opening that thing as a list in the main pane.
 The sidebar mirrors it: the same entry drives both panels.
 
-Folders on the Hosts screen fold: the heading is the control, and the state is shared with the
-sidebar tree, so a folder collapsed in one is collapsed in the other. A filter overrides a
-collapse — a match hidden inside a folded folder looks like the filter found nothing.
+**The sidebar column is the shortlist, not a second host list.** Under the navigation sit the
+seven devices connected to most often, busiest first, and then the ones marked as favourites —
+always there, whatever screen is open. It used to be the whole host tree, shown only while the
+Hosts page was open, which meant the one time the column had anything in it was the one time the
+pane was already listing the same devices. The two lists are disjoint: a favourite that is also
+one of the busiest is listed once, under Frequent.
+
+**A favourite is asked for, never assumed.** The tick is in the host's edit box, under
+"Log all sessions with this device", and off by default; the star on a row in the sidebar or on
+the Hosts page does the same thing without opening the form. Connection counts live in settings
+rather than in the hosts file, so counting a connection never rewrites the file the user edits
+and exports, and a count is only taken once a session actually opens — a host that cannot be
+reached does not climb the list for being tried repeatedly.
+
+Folders on the Hosts screen fold: the heading is the control. A filter overrides a collapse — a
+match hidden inside a folded folder looks like the filter found nothing. Folders are also made
+there, next to **Add host**, now that the sidebar holds shortcuts rather than the tree.
 
 **A fold outlives the launch.** It is stored in settings as a list of the folders that are shut,
 rather than of the ones that are open: an untouched install stores nothing, and a folder that is
@@ -117,6 +132,16 @@ afterwards, so it never waits on a file, and two quick clicks cannot undo one an
 name's place while the row is under the cursor or keyboard-focused. Both at once is what made that
 column feel cramped, and the address is the part you only want occasionally. A host whose name is
 already its address has nothing to swap to and stays put.
+
+**A session takes the keyboard as soon as it has a pane.** Focusing a terminal once, at the
+moment its panel is created, was not enough: xterm focuses a hidden textarea, and a textarea in a
+pane that has not been laid out — or in a dockview group still activating — cannot take focus, so
+the ask was quietly dropped and the session sat there waiting to be clicked. macOS made that the
+normal case rather than an occasional one, since clicking a button there does not move focus to
+it. The ask is now repeated over the next few frames and stops as soon as it lands, and it is
+repeated when a session finishes connecting and when the dock comes back from behind a form. A
+device's own password prompt still wins — the alternative is typing a password into a terminal
+that grabs the caret back a frame later.
 
 **With sessions open, Home is the sessions.** The card grid is what stands in when there is no
 work to go back to; once there are connections, Home lands on the dock and its tabs rather than

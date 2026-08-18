@@ -36,6 +36,14 @@ export interface Host {
   credentialId: string | null;
   inlineCredential: InlineCredential | null;
   logging: boolean;
+  /**
+   * Pinned to the sidebar by the user, under the hosts they connect to most.
+   *
+   * Off unless it is asked for: a favourite is a statement about this device, and an
+   * install that has never opened the box should have an empty list rather than one
+   * that quietly filled itself.
+   */
+  favorite: boolean;
   serial: SerialConfig | null;
   createdAt: string;
 }
@@ -61,6 +69,13 @@ export interface CredentialsFile {
   credentials: Credential[];
 }
 
+/** How often one saved host has been connected to, and when it last was. */
+export interface HostUsage {
+  count: number;
+  /** ISO timestamp of the most recent connection — the tie-break between equal counts. */
+  lastAt: string;
+}
+
 export interface Settings {
   version: 1;
   /** Unset on first run; session logging is blocked until it is chosen (§4.3). */
@@ -79,6 +94,13 @@ export interface Settings {
    * nothing, and a folder that is deleted simply stops being mentioned.
    */
   collapsedFolders: string[];
+  /**
+   * Connection counts per host id, which is what the sidebar's frequent list is ordered
+   * by. Kept in settings rather than in the hosts file so that counting a connection
+   * never rewrites the thing being counted — a hosts file is what the user edits and
+   * exports, and it should not churn every time a session is opened.
+   */
+  hostUsage: Record<string, HostUsage>;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -91,6 +113,7 @@ export const DEFAULT_SETTINGS: Settings = {
   sidebarWidth: 20,
   pasteWarnMultiline: true,
   collapsedFolders: [],
+  hostUsage: {},
 };
 
 export const EMPTY_HOSTS: HostsFile = { version: 1, folders: [], hosts: [] };

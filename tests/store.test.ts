@@ -30,6 +30,7 @@ const host = (over: Partial<Host> = {}): Host => ({
   credentialId: null,
   inlineCredential: null,
   logging: true,
+  favorite: false,
   serial: null,
   createdAt: '2026-08-14T10:00:00Z',
   ...over,
@@ -236,5 +237,70 @@ describe('folded host folders', () => {
   it('is not a list of folders that exist, and does not pretend to be', () => {
     // A folder can come back on an import; it should come back folded as it was left.
     expect(normaliseSettings({ collapsedFolders: ['gone'] }).collapsedFolders).toEqual(['gone']);
+  });
+});
+
+describe('favourites', () => {
+  it('is off for a host from before favourites existed', () => {
+    const file = normaliseHostsFile({ version: 1, folders: [], hosts: [{ id: 'hst_1' }] });
+    expect(file.hosts[0].favorite).toBe(false);
+  });
+
+  it('survives a round trip through the file', () => {
+    const file = normaliseHostsFile({
+      version: 1,
+      folders: [],
+      hosts: [{ id: 'hst_1', favorite: true }, { id: 'hst_2', favorite: 'yes' }],
+    });
+    expect(file.hosts[0].favorite).toBe(true);
+    // Only a real true counts — a hand-edited file does not get to be almost right.
+    expect(file.hosts[1].favorite).toBe(false);
+  });
+});
+
+describe('how often a host is connected to', () => {
+  it('starts empty', () => {
+    expect(normaliseSettings({}).hostUsage).toEqual({});
+  });
+
+  it('keeps counts and their timestamps', () => {
+    const usage = normaliseSettings({
+      hostUsage: { hst_1: { count: 3, lastAt: '2026-08-14T10:00:00Z' } },
+    }).hostUsage;
+    expect(usage.hst_1).toEqual({ count: 3, lastAt: '2026-08-14T10:00:00Z' });
+  });
+
+  it('drops what a hand-edited file might contain', () => {
+    const usage = normaliseSettings({
+      hostUsage: {
+        good: { count: 2, lastAt: '2026-08-14T10:00:00Z' },
+        fractional: { count: 2.7 },
+        negative: { count: -5 },
+        zero: { count: 0 },
+        wrong: 'nonsense',
+        empty: null,
+      },
+    }).hostUsage;
+
+    expect(Object.keys(usage).sort()).toEqual(['fractional', 'good']);
+    expect(usage.fractional).toEqual({ count: 2, lastAt: '' });
+  });
+
+  it('refuses to grow without limit, keeping the busiest', () => {
+    const many = Object.fromEntries(
+      Array.from({ length: 900 }, (_, index) => [`hst_${index}`, { count: index + 1 }]),
+    );
+    const usage = normaliseSettings({ hostUsage: many }).hostUsage;
+    expect(Object.keys(usage)).toHaveLength(500);
+    expect(usage.hst_899).toBeDefined();
+    expect(usage.hst_0).toBeUndefined();
+  });
+
+  it('is patched wholesale, the way the renderer sends it', () => {
+    const next = applySettings(
+      normaliseSettings({ hostUsage: { hst_1: { count: 1, lastAt: 'a' } } }),
+      { hostUsage: { hst_1: { count: 2, lastAt: 'b' } } },
+    );
+    expect(next.hostUsage).toEqual({ hst_1: { count: 2, lastAt: 'b' } });
   });
 });

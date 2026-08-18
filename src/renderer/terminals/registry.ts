@@ -27,6 +27,24 @@ export interface SessionTerminal {
   dispose(): void;
 }
 
+/** Roughly a fifth of a second at 60Hz — long enough for a pane to be laid out. */
+const FOCUS_ATTEMPTS = 12;
+
+/**
+ * Whether something outside this terminal is genuinely taking typing — an auth prompt,
+ * a search box, a form field. A button or the bare body is not a claim worth yielding to.
+ */
+function claimedByAnInput(element: HTMLElement): boolean {
+  const active = document.activeElement;
+  if (!active || active === document.body || element.contains(active)) return false;
+  return (
+    active instanceof HTMLInputElement ||
+    active instanceof HTMLTextAreaElement ||
+    active instanceof HTMLSelectElement ||
+    (active instanceof HTMLElement && active.isContentEditable)
+  );
+}
+
 /**
  * Terminals live here, outside React, keyed by session id.
  *
@@ -186,8 +204,45 @@ class TerminalRegistry {
     this.ensure(sessionId).terminal.writeln(text);
   }
 
-  focus(sessionId: string): void {
-    this.terminals.get(sessionId)?.terminal.focus();
+  /**
+   * Puts the keyboard into a session, and keeps asking until it lands.
+   *
+   * One call is not enough, and this is where the "click the terminal before you can
+   * type" complaint came from. A session is focused at the moment its panel is created,
+   * and at that moment `terminal.focus()` is a no-op more often than not: xterm focuses a
+   * hidden textarea, and a textarea that is detached, in a pane of zero width, or in a
+   * group dockview has not finished activating cannot take the focus. The click that
+   * started the connection had already moved on, so nothing tried again and the session
+   * sat there unfocused.
+   *
+   * macOS made it reliable rather than intermittent: WebKit and Chromium there do not
+   * focus a button on click, so the pointer never left the element it started on, and the
+   * activation dockview does asynchronously always landed after our one attempt.
+   *
+   * So the ask is repeated over the next few frames and stops the moment the terminal
+   * actually holds the focus — or the moment something with a better claim does. A
+   * device asking for a password puts an input on screen with `autoFocus`; that input
+   * wins, because the alternative is typing a password into a terminal that grabbed the
+   * caret back a frame later.
+   */
+  focus(sessionId: string, attempts = FOCUS_ATTEMPTS): void {
+    const record = this.terminals.get(sessionId);
+    if (!record) return;
+
+    const attempt = (left: number) => {
+      // Disposed, or replaced by a new session under the same id: stop asking.
+      if (this.terminals.get(sessionId) !== record) return;
+      if (record.element.contains(document.activeElement)) return;
+      if (claimedByAnInput(record.element)) return;
+
+      if (record.element.isConnected && record.element.clientWidth > 0) {
+        record.terminal.focus();
+        if (record.element.contains(document.activeElement)) return;
+      }
+      if (left > 0) requestAnimationFrame(() => attempt(left - 1));
+    };
+
+    attempt(attempts);
   }
 
   dispose(sessionId: string): void {

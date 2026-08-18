@@ -110,6 +110,16 @@ export function App(): JSX.Element {
       if (event.status === 'connected' && summary && !alreadyAnnounced) {
         terminals.write(event.sessionId, ansi.ok(`Connected — ${summary}`));
       }
+      /**
+       * A session that has just come up is the one being typed at. It was focused when
+       * its pane was built, but anything in between — a host key to accept, a password
+       * to answer — took the keyboard away and had nowhere to give it back to, and the
+       * user was left clicking the terminal before they could type. The registry declines
+       * this if something else on screen is genuinely taking input.
+       */
+      if (event.status === 'connected' && useSessions.getState().activeId === event.sessionId) {
+        terminals.focus(event.sessionId);
+      }
       if (event.detail && (event.status === 'error' || event.status === 'closed')) {
         const paint = event.status === 'error' ? ansi.error : ansi.info;
         terminals.write(event.sessionId, '');
@@ -185,6 +195,16 @@ export function App(): JSX.Element {
    */
   const { showDock, showHome } = paneLayout(view, tabs.length);
   const showForm = !showDock;
+
+  /**
+   * Whenever the dock is what the pane is showing, the active session has the keyboard —
+   * on connect, on switching tabs, and on coming back from a form that had covered it.
+   * The dock is hidden with CSS rather than unmounted, so a terminal in it can be focused
+   * only once it is on screen again; asking here is asking at that moment.
+   */
+  useEffect(() => {
+    if (showDock && activeId) terminals.focus(activeId);
+  }, [showDock, activeId]);
 
   // Nothing of the app exists for the renderer until main says it is open.
   if (locked === null) return <div className={styles.app} />;

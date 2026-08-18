@@ -39,6 +39,8 @@ export function HostForm({ host }: Props): JSX.Element {
   const [inlineKeyPath, setInlineKeyPath] = useState(host?.inlineCredential?.keyPath ?? '');
   const [secret, setSecret] = useState('');
   const [logging, setLogging] = useState(host?.logging ?? true);
+  // Off for a new host: a favourite is something asked for, never assumed.
+  const [favorite, setFavorite] = useState(host?.favorite ?? false);
   const [serial, setSerial] = useState<SerialConfig>(host?.serial ?? DEFAULT_SERIAL);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -87,6 +89,7 @@ export function HostForm({ host }: Props): JSX.Element {
             }
           : null,
         logging,
+        favorite,
         serial: protocol === 'serial' ? { ...serial, path: serial.path.trim() } : null,
         createdAt: host?.createdAt ?? new Date().toISOString(),
       },
@@ -282,6 +285,19 @@ export function HostForm({ host }: Props): JSX.Element {
           />
           Log all sessions with this device
         </label>
+
+        <label className={`${styles.toggleRow} ${styles.toggleTight}`}>
+          <input
+            type="checkbox"
+            checked={favorite}
+            onChange={(event) => setFavorite(event.target.checked)}
+          />
+          Favourite — pin this device to the sidebar
+        </label>
+        <p className={styles.hint}>
+          The sidebar lists the devices you connect to most, and favourites after them. A
+          favourite that is already in the frequent list is not repeated.
+        </p>
 
         <div className={styles.actions}>
           <button type="submit" className={styles.primary}>

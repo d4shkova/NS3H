@@ -98,12 +98,20 @@
   font-weight: 500;
 }
 
-/* Folder headings inside the hosts table, matching the sidebar's grouping. */
+/*
+ * Folder headings inside the hosts table, matching the sidebar's grouping.
+ *
+ * Written as `.table th.groupName` rather than `.groupName` on purpose. A folder heading
+ * is a `th`, so `.table th` above matches it too — and at equal-or-higher specificity it
+ * was the one that won, which meant the heading kept the column header's `padding: 0 10px
+ * 8px`. Zero padding above and eight below is what made the folder names sit against the
+ * top of their band instead of in the middle of it.
+ */
 .groupRow th {
   border-bottom: 1px solid var(--border);
 }
 
-.groupName {
+.table th.groupName {
   text-align: left;
   font-size: 11px;
   font-weight: 600;
@@ -111,7 +119,9 @@
   text-transform: uppercase;
   color: var(--text-secondary);
   background: var(--bg-panel);
-  padding: 7px 10px;
+  /* Even top and bottom: the band is the heading's, not a column header's. */
+  padding: 8px 10px;
+  vertical-align: middle;
 }
 
 .groupCount {
@@ -236,10 +246,18 @@ tr:hover .rowDelete,
   padding: 0;
 }
 
-/* The folder heading is the control that folds it. */
+/*
+ * The folder heading is the control that folds it.
+ *
+ * Centred rather than baseline-aligned, and on one shared line-height: the name is
+ * uppercase at 11px and the count is not, so their boxes are different heights, and
+ * aligning two different-sized boxes on a baseline leaves space under the shorter one
+ * that reads as the whole row sitting high.
+ */
 .groupToggle {
   display: flex;
-  align-items: baseline;
+  align-items: center;
+  line-height: 1.35;
   width: 100%;
   text-align: left;
   padding: 0;
@@ -253,10 +271,85 @@ tr:hover .rowDelete,
   color: var(--text-primary);
 }
 
+/* A fixed box for a glyph whose own metrics would otherwise set the row's height. */
 .groupToggle .chevron {
-  display: inline-block;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
   width: 14px;
   flex: none;
+  line-height: 1;
   color: var(--text-tertiary);
   margin-right: 0;
+}
+
+.groupToggle .groupCount {
+  line-height: 1.35;
+}
+
+/* Add folder sits beside Add host: the tree it used to live in is no longer in the
+   sidebar, and this is the only screen that shows folders. */
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+}
+
+.secondary {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  padding: 8px 14px;
+}
+
+.secondary:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  border-color: var(--border-focus);
+}
+
+.newFolder {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  padding: 10px;
+  border: 1px solid var(--border-focus);
+  border-radius: var(--radius-sm);
+  background: var(--bg-panel);
+}
+
+.newFolder input {
+  flex: 1;
+  min-width: 0;
+}
+
+/*
+ * The favourite toggle in front of a host's name. Always visible when it is on — that is
+ * the device's state, not a control that appears — and revealed on hover or keyboard
+ * focus otherwise, without leaving the flow, so the column does not resize under the
+ * cursor.
+ */
+.star {
+  width: 18px;
+  margin-right: 6px;
+  color: var(--text-tertiary);
+  font-size: 12px;
+  opacity: 0;
+  transition: opacity 100ms ease;
+}
+
+.starred,
+tr:hover .star,
+.star:focus-visible {
+  opacity: 1;
+}
+
+.starred {
+  color: var(--accent);
+}
+
+.star:hover {
+  color: var(--accent);
 }
