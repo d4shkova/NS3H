@@ -579,6 +579,10 @@ export function registerIpc(): void {
     },
   );
 
+  handle(IpcChannel.sessionReconnect, (event, sessionId: unknown) => {
+    managerFor(event.sender).reconnect(requireString(sessionId, 'sessionId'));
+  });
+
   handle(IpcChannel.sessionSendBreak, (event, sessionId: unknown) =>
     managerFor(event.sender).sendBreak(requireString(sessionId, 'sessionId')),
   );

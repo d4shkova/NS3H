@@ -30,6 +30,7 @@ export const IpcChannel = {
   sessionOpenSsh: 'session:open-ssh',
   sessionOpenTelnet: 'session:open-telnet',
   sessionOpenSerial: 'session:open-serial',
+  sessionReconnect: 'session:reconnect',
   sessionSendBreak: 'session:send-break',
   sessionSetLogging: 'session:set-logging',
   serialList: 'serial:list',

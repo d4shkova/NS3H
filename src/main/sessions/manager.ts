@@ -37,6 +37,12 @@ interface Transport {
 interface Session {
   info: SessionInfo;
   connection: Transport;
+  /**
+   * Identifies this connection attempt. A reconnect reuses the session id, so the
+   * connection being replaced would otherwise keep writing to the new one's log and
+   * overwriting its status as it tears down; every callback checks this first.
+   */
+  token: object;
   /** Opened on demand for file transfer; SSH sessions only. Held as the in-flight
    * promise so concurrent requests share one channel. */
   sftp?: Promise<SftpSession>;
@@ -63,10 +69,25 @@ export interface OpenSshOptions {
   logging: boolean;
 }
 
+/**
+ * How a session was opened, kept so it can be opened the same way again.
+ *
+ * Held for as long as the tab exists rather than only while the connection is up: the
+ * point of Reconnect is that it works on a session that has already dropped. For SSH
+ * that means an already-resolved target, secret included — the same one the live
+ * connection holds — so it is dropped in `close`, when the tab goes.
+ */
+type SessionSpec =
+  | { kind: 'ssh'; target: SshTarget; options: OpenSshOptions }
+  | { kind: 'telnet'; target: TelnetTarget; options: OpenSshOptions }
+  | { kind: 'serial'; name: string; config: SerialConfig; options: OpenSshOptions };
+
 type Pending<T> = { resolve: (value: T) => void };
 
 export class SessionManager {
   private readonly sessions = new Map<string, Session>();
+  /** Outlives the session it describes; see `SessionSpec`. */
+  private readonly specs = new Map<string, SessionSpec>();
   private readonly hostKeyPrompts = new Map<string, Pending<boolean>>();
   private readonly authPrompts = new Map<string, Pending<string[] | null>>();
 
@@ -78,6 +99,11 @@ export class SessionManager {
 
   openSsh(target: SshTarget, options: OpenSshOptions = { logging: true }): string {
     const sessionId = newId('ses');
+    this.start(sessionId, { kind: 'ssh', target, options });
+    return sessionId;
+  }
+
+  private startSsh(sessionId: string, target: SshTarget, options: OpenSshOptions): void {
     const info: SessionInfo = {
       id: sessionId,
       protocol: 'ssh',
@@ -88,12 +114,19 @@ export class SessionManager {
       status: 'connecting',
     };
 
+    // See `Session.token`: everything below belongs to this attempt, and goes quiet the
+    // moment a reconnect has replaced it.
+    const token = {};
+    const current = () => this.sessions.get(sessionId)?.token === token;
+
     const connection = new SshConnection(target, {
       onData: (chunk) => {
+        if (!current()) return;
         this.record(sessionId, chunk);
         this.emitData(sessionId, chunk);
       },
       onConnected: (negotiation) => {
+        if (!current()) return;
         info.status = 'connected';
         info.negotiation = negotiation;
         this.emit(IpcChannel.sessionStatus, { sessionId, status: 'connected', negotiation });
@@ -116,17 +149,21 @@ export class SessionManager {
         );
       },
       onClosed: (detail) => {
+        if (!current()) return;
         info.status = 'closed';
         this.emit(IpcChannel.sessionStatus, { sessionId, status: 'closed', detail });
         void this.finish(sessionId);
       },
       onError: (detail) => {
+        if (!current()) return;
         info.status = 'error';
         this.emit(IpcChannel.sessionStatus, { sessionId, status: 'error', detail });
         void this.finish(sessionId);
       },
-      onNotice: (level: NoticeLevel, text: string) =>
-        this.emit(IpcChannel.sessionNotice, { sessionId, level, text }),
+      onNotice: (level: NoticeLevel, text: string) => {
+        if (!current()) return;
+        this.emit(IpcChannel.sessionNotice, { sessionId, level, text });
+      },
       verifyHostKey: (identity) => this.resolveHostKey(sessionId, target, identity),
       promptAuth: (request) => this.askAuth(sessionId, request),
     });
@@ -134,17 +171,22 @@ export class SessionManager {
     this.sessions.set(sessionId, {
       info,
       connection,
+      token,
       log: null,
       pending: [],
       logging: options.logging,
     });
     this.emit(IpcChannel.sessionStatus, { sessionId, status: 'connecting' });
     void connection.open();
-    return sessionId;
   }
 
   openTelnet(target: TelnetTarget, options: OpenSshOptions = { logging: true }): string {
     const sessionId = newId('ses');
+    this.start(sessionId, { kind: 'telnet', target, options });
+    return sessionId;
+  }
+
+  private startTelnet(sessionId: string, target: TelnetTarget, options: OpenSshOptions): void {
     const info: SessionInfo = {
       id: sessionId,
       protocol: 'telnet',
@@ -155,12 +197,17 @@ export class SessionManager {
       status: 'connecting',
     };
 
+    const token = {};
+    const current = () => this.sessions.get(sessionId)?.token === token;
+
     const connection = new TelnetConnection(target, {
       onData: (chunk) => {
+        if (!current()) return;
         this.record(sessionId, chunk);
         this.emitData(sessionId, chunk);
       },
       onConnected: () => {
+        if (!current()) return;
         info.status = 'connected';
         this.emit(IpcChannel.sessionStatus, { sessionId, status: 'connected' });
         void this.startLog(sessionId, options, {
@@ -171,28 +218,33 @@ export class SessionManager {
         });
       },
       onClosed: (detail) => {
+        if (!current()) return;
         info.status = 'closed';
         this.emit(IpcChannel.sessionStatus, { sessionId, status: 'closed', detail });
         void this.finish(sessionId);
       },
       onError: (detail) => {
+        if (!current()) return;
         info.status = 'error';
         this.emit(IpcChannel.sessionStatus, { sessionId, status: 'error', detail });
         void this.finish(sessionId);
       },
-      onNotice: (level, text) => this.emit(IpcChannel.sessionNotice, { sessionId, level, text }),
+      onNotice: (level, text) => {
+        if (!current()) return;
+        this.emit(IpcChannel.sessionNotice, { sessionId, level, text });
+      },
     });
 
     this.sessions.set(sessionId, {
       info,
       connection,
+      token,
       log: null,
       pending: [],
       logging: options.logging,
     });
     this.emit(IpcChannel.sessionStatus, { sessionId, status: 'connecting' });
     connection.open();
-    return sessionId;
   }
 
   openSerial(
@@ -201,6 +253,16 @@ export class SessionManager {
     options: OpenSshOptions = { logging: true },
   ): string {
     const sessionId = newId('ses');
+    this.start(sessionId, { kind: 'serial', name, config, options });
+    return sessionId;
+  }
+
+  private startSerial(
+    sessionId: string,
+    name: string,
+    config: SerialConfig,
+    options: OpenSshOptions,
+  ): void {
     const info: SessionInfo = {
       id: sessionId,
       protocol: 'serial',
@@ -211,12 +273,17 @@ export class SessionManager {
       status: 'connecting',
     };
 
+    const token = {};
+    const current = () => this.sessions.get(sessionId)?.token === token;
+
     const connection = new SerialConnection(config, {
       onData: (chunk) => {
+        if (!current()) return;
         this.record(sessionId, chunk);
         this.emitData(sessionId, chunk);
       },
       onConnected: () => {
+        if (!current()) return;
         info.status = 'connected';
         this.emit(IpcChannel.sessionStatus, { sessionId, status: 'connected' });
         void this.startLog(sessionId, options, {
@@ -235,28 +302,74 @@ export class SessionManager {
         });
       },
       onClosed: (detail) => {
+        if (!current()) return;
         info.status = 'closed';
         this.emit(IpcChannel.sessionStatus, { sessionId, status: 'closed', detail });
         void this.finish(sessionId);
       },
       onError: (detail) => {
+        if (!current()) return;
         info.status = 'error';
         this.emit(IpcChannel.sessionStatus, { sessionId, status: 'error', detail });
         void this.finish(sessionId);
       },
-      onNotice: (level, text) => this.emit(IpcChannel.sessionNotice, { sessionId, level, text }),
+      onNotice: (level, text) => {
+        if (!current()) return;
+        this.emit(IpcChannel.sessionNotice, { sessionId, level, text });
+      },
     });
 
     this.sessions.set(sessionId, {
       info,
       connection,
+      token,
       log: null,
       pending: [],
       logging: options.logging,
     });
     this.emit(IpcChannel.sessionStatus, { sessionId, status: 'connecting' });
     connection.open();
-    return sessionId;
+  }
+
+  /** Records how the session was opened, then opens it. */
+  private start(sessionId: string, spec: SessionSpec): void {
+    this.specs.set(sessionId, spec);
+    switch (spec.kind) {
+      case 'ssh':
+        this.startSsh(sessionId, spec.target, spec.options);
+        return;
+      case 'telnet':
+        this.startTelnet(sessionId, spec.target, spec.options);
+        return;
+      case 'serial':
+        this.startSerial(sessionId, spec.name, spec.config, spec.options);
+        return;
+    }
+  }
+
+  /**
+   * Dials the same target again under the same session id (§ tab context menu).
+   *
+   * Keeping the id is the whole point: the renderer's tab, the terminal it owns and its
+   * scrollback, and the pane it was dragged to all belong to that id, and a reconnect
+   * that made a new session would leave the user with a fresh tab at the end of the
+   * strip and a dead one to close. A session that is still up is dropped first — this is
+   * also how a wedged connection is redialled — and a new log file opens with the new
+   * connection, since the gap is real and one file spanning both would hide it.
+   */
+  reconnect(sessionId: string): void {
+    const spec = this.specs.get(sessionId);
+    if (!spec) throw new Error('That session cannot be reconnected.');
+
+    // Detached before it is dialled again, so the old connection's parting status and
+    // any last output land on a session this manager no longer has.
+    const existing = this.sessions.get(sessionId);
+    if (existing) {
+      existing.connection.close();
+      void this.finish(sessionId);
+    }
+
+    this.start(sessionId, spec);
   }
 
   /** SFTP runs over the session that is already authenticated (§ phase 9). */
@@ -352,6 +465,9 @@ export class SessionManager {
   }
 
   close(sessionId: string): void {
+    // Before the early return: a session that has already dropped still has a spec, and
+    // this is the call that says the tab has gone and the target is not needed again.
+    this.specs.delete(sessionId);
     const session = this.sessions.get(sessionId);
     if (!session) return;
     session.connection.close();

@@ -163,6 +163,8 @@ const api: Ns3hApi = {
       ipcRenderer.invoke(IpcChannel.sessionOpenTelnet, target) as Promise<OpenSessionResult>,
     openSerial: (name: string, config: SerialConfig) =>
       ipcRenderer.invoke(IpcChannel.sessionOpenSerial, name, config) as Promise<OpenSessionResult>,
+    reconnect: (sessionId: string) =>
+      ipcRenderer.invoke(IpcChannel.sessionReconnect, sessionId) as Promise<void>,
     sendBreak: (sessionId: string) =>
       ipcRenderer.invoke(IpcChannel.sessionSendBreak, sessionId) as Promise<void>,
     setLogging: (sessionId: string, logging: boolean) =>

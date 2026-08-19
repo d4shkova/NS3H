@@ -29,7 +29,7 @@ export function HostShortcuts(): JSX.Element | null {
   const setView = useConfig((state) => state.setView);
   const setFavorite = useConfig((state) => state.setFavorite);
   const connectHost = useSessions((state) => state.connectHost);
-  const setSection = useSessions((state) => state.setSection);
+  const openSection = useSessions((state) => state.openSection);
 
   const [menu, setMenu] = useState<MenuState | null>(null);
 
@@ -127,10 +127,7 @@ export function HostShortcuts(): JSX.Element | null {
       <button
         type="button"
         className={styles.all}
-        onClick={() => {
-          setSection('hosts');
-          setView({ kind: 'hosts' });
-        }}
+        onClick={() => openSection('hosts')}
       >
         All hosts →
       </button>

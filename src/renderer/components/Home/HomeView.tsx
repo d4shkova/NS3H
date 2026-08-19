@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useConfig } from '@renderer/stores/config.js';
+import { useSessions } from '@renderer/stores/sessions.js';
 import styles from './HomeView.module.css';
 
 interface Card {
@@ -23,7 +24,9 @@ interface Counts {
 /** The landing screen: everything the app does, one click away. */
 export function HomeView(): JSX.Element {
   const snapshot = useConfig((state) => state.snapshot);
-  const setView = useConfig((state) => state.setView);
+  // Every card is also an entry in the left-hand column, so opening one selects it
+  // there too rather than leaving the column on Home.
+  const openSection = useSessions((state) => state.openSection);
   const [logCounts, setLogCounts] = useState({ folders: 0, sessions: 0 });
 
   useEffect(() => {
@@ -53,7 +56,7 @@ export function HomeView(): JSX.Element {
       title: 'Quick connect',
       description: 'Connect to something once, without saving it.',
       detail: () => 'SSH, telnet, or serial',
-      onOpen: () => setView({ kind: 'quick' }),
+      onOpen: () => openSection('quick'),
     },
     {
       key: 'hosts',
@@ -65,7 +68,7 @@ export function HomeView(): JSX.Element {
           ? 'Nothing saved yet'
           : `${c.hosts} host${c.hosts === 1 ? '' : 's'}` +
             (c.folders ? ` in ${c.folders} folder${c.folders === 1 ? '' : 's'}` : ''),
-      onOpen: () => setView({ kind: 'hosts' }),
+      onOpen: () => openSection('hosts'),
     },
     {
       key: 'credentials',
@@ -74,7 +77,7 @@ export function HomeView(): JSX.Element {
       description: 'Reusable logins, with secrets held by the OS keychain.',
       detail: (c) =>
         c.credentials === 0 ? 'None yet' : `${c.credentials} saved`,
-      onOpen: () => setView({ kind: 'credentials' }),
+      onOpen: () => openSection('credentials'),
     },
     {
       key: 'logs',
@@ -87,7 +90,7 @@ export function HomeView(): JSX.Element {
           : c.logSessions === 0
             ? 'No sessions recorded yet'
             : `${c.logSessions} session${c.logSessions === 1 ? '' : 's'} across ${c.logFolders} device${c.logFolders === 1 ? '' : 's'}`,
-      onOpen: () => setView({ kind: 'logs' }),
+      onOpen: () => openSection('logs'),
     },
     {
       key: 'transfer',
@@ -95,7 +98,7 @@ export function HomeView(): JSX.Element {
       title: 'File transfer',
       description: 'Move files to and from a device or a file server.',
       detail: () => 'SFTP, SCP, or SMB — an open session, or its own connection',
-      onOpen: () => setView({ kind: 'transfer' }),
+      onOpen: () => openSection('transfer'),
     },
   ];
 

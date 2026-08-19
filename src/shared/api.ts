@@ -152,6 +152,11 @@ export interface Ns3hApi {
     openSsh(target: SshTargetInput): Promise<OpenSessionResult>;
     openTelnet(target: TelnetTargetInput): Promise<OpenSessionResult>;
     openSerial(name: string, config: SerialConfig): Promise<OpenSessionResult>;
+    /**
+     * Dials the same target again on the same session id, so the tab, its terminal, and
+     * its place in the dock survive. A session still up is dropped first.
+     */
+    reconnect(sessionId: string): Promise<void>;
     /** Serial only: assert break for 250 ms (Cisco password recovery). */
     sendBreak(sessionId: string): Promise<void>;
     /**
