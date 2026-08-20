@@ -10,3 +10,33 @@
   background: var(--bg-base);
   box-sizing: border-box;
 }
+
+/*
+ * The tab's right-click menu. Fixed to the pointer rather than to the tab, as the
+ * sidebar's host menu is, so a tab near the right-hand edge does not push it off screen
+ * or clip it inside the tab strip's own scroll box.
+ */
+.menu {
+  position: fixed;
+  z-index: 50;
+  min-width: 190px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 5px;
+  box-shadow: 0 14px 36px rgb(0 0 0 / 55%);
+}
+
+.menuItem {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 7px 10px;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+}
+
+.menuItem:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}

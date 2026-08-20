@@ -15,8 +15,7 @@ const SECTIONS: { key: SidebarSection; label: string; icon: string }[] = [
 
 export function Sidebar(): JSX.Element {
   const section = useSessions((state) => state.section);
-  const setSection = useSessions((state) => state.setSection);
-  const setView = useConfig((state) => state.setView);
+  const openSection = useSessions((state) => state.openSection);
   const configError = useConfig((state) => state.error);
   const clearError = useConfig((state) => state.clearError);
 
@@ -28,11 +27,8 @@ export function Sidebar(): JSX.Element {
             key={item.key}
             type="button"
             className={`${styles.item} ${section === item.key ? styles.active : ''}`}
-            onClick={() => {
-              setSection(item.key);
-              // The sidebar and the main pane show the same thing (§6.3).
-              setView({ kind: item.key });
-            }}
+            // The sidebar and the main pane show the same thing (§6.3).
+            onClick={() => openSection(item.key)}
           >
             <span aria-hidden="true">{item.icon}</span>
             {item.label}

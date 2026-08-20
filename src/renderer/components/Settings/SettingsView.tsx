@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useConfig } from '@renderer/stores/config.js';
 import { ThemePicker } from './ThemePicker.js';
 import { BackupSection } from './BackupSection.js';
@@ -16,7 +16,14 @@ import own from './SettingsView.module.css';
  * rail says what is in each, so the answer to "where is that setting" is on screen
  * instead of somewhere down the page.
  */
-type GroupKey = 'logs' | 'appearance' | 'sidebar' | 'terminal' | 'security' | 'backup';
+type GroupKey =
+  | 'logs'
+  | 'appearance'
+  | 'sidebar'
+  | 'terminal'
+  | 'security'
+  | 'backup'
+  | 'about';
 
 const GROUPS: { key: GroupKey; label: string; note: string }[] = [
   { key: 'logs', label: 'Session logs', note: 'Where sessions are recorded' },
@@ -25,6 +32,7 @@ const GROUPS: { key: GroupKey; label: string; note: string }[] = [
   { key: 'terminal', label: 'Terminal', note: 'Copy, paste and warnings' },
   { key: 'security', label: 'Security', note: 'Keychain and launch password' },
   { key: 'backup', label: 'Backup', note: 'Export and import configuration' },
+  { key: 'about', label: 'About', note: 'Version and author' },
 ];
 
 export function SettingsView(): JSX.Element {
@@ -33,6 +41,19 @@ export function SettingsView(): JSX.Element {
   const saveSettings = useConfig((state) => state.saveSettings);
   const setView = useConfig((state) => state.setView);
   const [group, setGroup] = useState<GroupKey>('logs');
+  /**
+   * Asked of main rather than read from an import of package.json, so a packaged build
+   * reports the version it was actually built as. Empty until the answer arrives — a
+   * placeholder version would be a wrong one.
+   */
+  const [version, setVersion] = useState('');
+
+  useEffect(() => {
+    void window.ns3h
+      .platform()
+      .then((info) => setVersion(info.version))
+      .catch(() => setVersion(''));
+  }, []);
 
   const { logDirectory } = snapshot.settings;
 
@@ -158,6 +179,17 @@ export function SettingsView(): JSX.Element {
             )}
 
             {group === 'backup' && <BackupSection />}
+
+            {group === 'about' && (
+              <div className={styles.section}>
+                <div className={styles.sectionTitle}>About</div>
+                <p className={own.about}>
+                  NS3H{version && ` v.${version}`}
+                  <br />A complete and free ssh client
+                </p>
+                <p className={own.about}>W.H. Finein</p>
+              </div>
+            )}
           </div>
         </div>
 

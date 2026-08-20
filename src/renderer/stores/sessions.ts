@@ -8,7 +8,10 @@ import type {
 } from '@shared/types.js';
 import type { Host, SerialConfig } from '@shared/config.js';
 import { useConfig } from './config.js';
+import { viewAfterLastSession, type SidebarSection } from './pane.js';
 import { useTransfers } from './transfers.js';
+
+export type { SidebarSection };
 
 export interface SessionTab {
   id: string;
@@ -29,14 +32,6 @@ export interface SessionTab {
   logging: boolean;
 }
 
-export type SidebarSection =
-  | 'home'
-  | 'hosts'
-  | 'credentials'
-  | 'logs'
-  | 'transfer'
-  | 'quick';
-
 interface SessionState {
   tabs: SessionTab[];
   activeId: string | null;
@@ -45,10 +40,23 @@ interface SessionState {
   authPrompts: Record<string, AuthPromptRequest | undefined>;
 
   setSection: (section: SidebarSection) => void;
+  /**
+   * Selects an entry in the left-hand column and shows its screen. One action rather
+   * than two, because the selection and the pane have to agree — a card on Home that
+   * moved only the pane left the column pointing somewhere the user was not, and the
+   * selection is what closing the last session now returns to.
+   */
+  openSection: (section: SidebarSection) => void;
   connect: (target: SshTargetInput) => Promise<void>;
   connectTelnet: (target: { name: string; address: string; port: number }) => Promise<void>;
   connectSerial: (name: string, config: SerialConfig) => Promise<void>;
   connectHost: (host: Host) => Promise<void>;
+  /**
+   * Dials the tab's target again in place. The tab, its terminal and its scrollback are
+   * kept — main reuses the session id — so this is both "the link dropped, try again"
+   * and "this session is wedged, redial it".
+   */
+  reconnect: (sessionId: string) => Promise<void>;
   sendBreak: (sessionId: string) => Promise<void>;
   /** Starts or stops logging for one session. Returns the state it ended up in. */
   setLogging: (sessionId: string, logging: boolean) => Promise<boolean>;
@@ -91,6 +99,11 @@ export const useSessions = create<SessionState>((set, get) => ({
   connectError: null,
 
   setSection: (section) => set({ section }),
+
+  openSection: (section) => {
+    set({ section });
+    useConfig.getState().setView({ kind: section });
+  },
   clearConnectError: () => set({ connectError: null }),
 
   connectTelnet: async (target) => {
@@ -140,6 +153,35 @@ export const useSessions = create<SessionState>((set, get) => ({
         ],
         activeId: sessionId,
       }));
+    } catch (cause) {
+      set({ connectError: (cause as Error).message });
+    }
+  },
+
+  reconnect: async (sessionId) => {
+    if (!get().tabs.some((tab) => tab.id === sessionId)) return;
+
+    // Put back to how the tab looked when it was first opened, before main answers: the
+    // status bar must not still claim the old connection, and clearing the negotiation
+    // summary is what lets the new one announce itself in the terminal.
+    set((state) => ({
+      connectError: null,
+      activeId: sessionId,
+      tabs: state.tabs.map((tab) =>
+        tab.id === sessionId
+          ? {
+              ...tab,
+              status: 'connecting',
+              detail: undefined,
+              negotiationSummary: undefined,
+              logPath: undefined,
+            }
+          : tab,
+      ),
+    }));
+
+    try {
+      await window.ns3h.session.reconnect(sessionId);
     } catch (cause) {
       set({ connectError: (cause as Error).message });
     }
@@ -218,7 +260,12 @@ export const useSessions = create<SessionState>((set, get) => ({
       tabs: remaining,
       activeId: activeId === id ? (remaining.at(-1)?.id ?? null) : activeId,
     });
-    if (remaining.length === 0) useConfig.getState().setView({ kind: 'home' });
+    // The dock is not shown empty, so the pane goes back to whatever the left-hand
+    // column is on — the screen this session was started from, not Home.
+    if (remaining.length === 0) {
+      const config = useConfig.getState();
+      config.setView(viewAfterLastSession(config.view, get().section));
+    }
   },
 
   applyStatus: (id, status, detail, summary, logPath) =>

@@ -1,8 +1,16 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createDockview, type DockviewApi, type IContentRenderer } from 'dockview';
 import { useSessions } from '@renderer/stores/sessions.js';
 import { terminals } from '@renderer/terminals/registry.js';
+import { createSessionTab } from './SessionTab.js';
 import styles from './SessionDock.module.css';
+
+/** An open tab menu: where it was asked for, and which session it belongs to. */
+interface MenuState {
+  x: number;
+  y: number;
+  sessionId: string;
+}
 
 /**
  * The session area (§6.4): tabs across the top, and dragging a tab to an edge of the
@@ -18,10 +26,24 @@ export function SessionDock(): JSX.Element {
   /** Panels currently in the dock, so tab changes can be diffed against sessions. */
   const panels = useRef(new Set<string>());
 
+  const [menu, setMenu] = useState<MenuState | null>(null);
+
   const tabs = useSessions((state) => state.tabs);
   const activeId = useSessions((state) => state.activeId);
   const setActive = useSessions((state) => state.setActive);
   const closeTab = useSessions((state) => state.closeTab);
+  const reconnect = useSessions((state) => state.reconnect);
+
+  useEffect(() => {
+    if (!menu) return undefined;
+    const dismiss = () => setMenu(null);
+    window.addEventListener('click', dismiss);
+    window.addEventListener('resize', dismiss);
+    return () => {
+      window.removeEventListener('click', dismiss);
+      window.removeEventListener('resize', dismiss);
+    };
+  }, [menu]);
 
   useEffect(() => {
     const host = hostRef.current;
@@ -29,6 +51,12 @@ export function SessionDock(): JSX.Element {
 
     const dock = createDockview(host, {
       className: 'dockview-theme-abyss',
+      // Every panel is a session, so they all get the tab that carries the session menu.
+      defaultTabComponent: 'session',
+      createTabComponent: (options) =>
+        createSessionTab(options.id, (sessionId, event) =>
+          setMenu({ x: event.clientX, y: event.clientY, sessionId }),
+        ),
       createComponent: (options): IContentRenderer => {
         const element = document.createElement('div');
         element.className = styles.pane;
@@ -118,5 +146,33 @@ export function SessionDock(): JSX.Element {
     terminals.focus(activeId);
   }, [activeId]);
 
-  return <div ref={hostRef} className={styles.dock} />;
+  const menuTab = menu ? tabs.find((tab) => tab.id === menu.sessionId) : undefined;
+
+  return (
+    <>
+      <div ref={hostRef} className={styles.dock} />
+
+      {menu && menuTab && (
+        <div
+          className={styles.menu}
+          style={{ left: menu.x, top: menu.y }}
+          onClick={(event) => event.stopPropagation()}
+        >
+          <button
+            type="button"
+            className={styles.menuItem}
+            onClick={() => {
+              void reconnect(menu.sessionId);
+              setMenu(null);
+            }}
+          >
+            {/* One item, two jobs: a session that dropped is dialled again, and one that
+                is still up is dropped first and then dialled — which is what a wedged
+                connection needs. */}
+            {menuTab.status === 'connected' ? 'Reconnect' : 'Connect again'}
+          </button>
+        </div>
+      )}
+    </>
+  );
 }

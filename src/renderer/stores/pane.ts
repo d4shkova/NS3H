@@ -1,5 +1,18 @@
 import type { MainView } from './config.js';
 
+/**
+ * The entries in the left-hand column. Each one names the view it opens, and stays
+ * selected while the user works inside it — including while a session started from it
+ * is on screen.
+ */
+export type SidebarSection =
+  | 'home'
+  | 'hosts'
+  | 'credentials'
+  | 'logs'
+  | 'transfer'
+  | 'quick';
+
 export interface PaneLayout {
   /** The session dock is on screen and taking the pane. */
   showDock: boolean;
@@ -30,4 +43,22 @@ export function paneLayout(view: MainView, sessionCount: number): PaneLayout {
     showDock: dockUsable,
     showHome: wantsSessions && !dockUsable,
   };
+}
+
+/**
+ * Where the pane goes when the last session is closed.
+ *
+ * The dock cannot be shown empty, so something has to take the pane — and what the user
+ * chose in the left-hand column is what that should be. Sending them to Home instead
+ * left the column saying "Hosts" over a screen that was not the host list: the selection
+ * and the pane disagreed, and getting back meant clicking a menu entry that already
+ * looked selected.
+ *
+ * Only the dock is replaced. A session can end while a form, Settings, or a log is what
+ * the pane is showing; that is not a navigation the user asked for, and moving them off
+ * it would lose whatever they were part-way through.
+ */
+export function viewAfterLastSession(view: MainView, section: SidebarSection): MainView {
+  if (view.kind !== 'sessions' && view.kind !== 'home') return view;
+  return { kind: section };
 }

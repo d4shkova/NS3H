@@ -154,14 +154,23 @@ work to go back to; once there are connections, Home lands on the dock and its t
 on a menu to click through. Every card's destination is in the sidebar regardless. Sessions keep
 running (and logging) behind whatever else is on screen.
 
+**Closing the last session returns to the sidebar's selection, not to Home.** The dock is never
+shown empty, so something has to take the pane when the last tab goes — and what the user chose
+in the left-hand column is what that should be. Sending them to Home instead left the column
+highlighting *Hosts* over a screen that was not the host list, and getting back meant clicking a
+menu entry that already looked selected. The selection is therefore the sticky thing: every way
+of navigating sets it, Home's cards included, so it is always an honest answer to "where am I".
+A session ending behind a form, Settings, or a log does not move the pane at all — that is not a
+navigation the user asked for.
+
 The two tabbed areas are deliberately separate: terminals live in the session dock, file
 transfers live on their own screen with their own tabs, and neither competes with the other for
 the pane.
 
 ## Settings
 
-Six groups behind a rail — Session logs, Appearance, Sidebar, Terminal, Security, Backup —
-rather than one column with everything in it. Each group is sized to fit a window without
+Seven groups behind a rail — Session logs, Appearance, Sidebar, Terminal, Security, Backup,
+About — rather than one column with everything in it. Each group is sized to fit a window without
 scrolling, so finding a control is reading six labels instead of scrolling past every section
 above the one you want. The rail says what is in each group, which is the part that does the
 work: "where is that setting" is answered on screen. Below about 560px of pane the rail sits
@@ -384,6 +393,22 @@ component: a pane can be unmounted mid-session at any moment.
 
 dockview only mounts the visible panel, so panes re-fit on their own resize, on layout change,
 and on re-attach — a terminal that is not re-fitted keeps a stale column count and wraps.
+
+**Right-clicking a tab offers Reconnect**, and the reconnect keeps the session id. That is the
+whole point: the tab, the terminal and its scrollback, and the pane it was dragged to all belong
+to that id, so dialling under a new one would leave the user with a fresh tab at the end of the
+strip and a dead one to close. Main keeps the resolved target for as long as the tab exists —
+which is what lets a session that has already dropped be dialled again — and forgets it when the
+tab closes. A session still up is dropped first, so the same item redials a wedged connection. A
+reconnect opens a new log file rather than continuing the old one: the gap is real, and one file
+spanning both would hide it.
+
+The tab is drawn by the app (`Terminal/SessionTab.ts`) rather than by dockview's default
+renderer, because a right-click has to arrive with the session it was aimed at already in hand.
+dockview's own tab context menu is an enterprise module, and the tab DOM it builds carries no
+panel id, so an event caught on the strip could only be mapped back to a session by counting tab
+positions — wrong the moment one is dragged. The markup is the default renderer's, class names
+included, so the theming applies to it unchanged.
 
 ## Telnet and serial
 
