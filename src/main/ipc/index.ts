@@ -1,4 +1,4 @@
-import { BrowserWindow, clipboard, dialog, ipcMain, shell, type WebContents } from 'electron';
+import { app, BrowserWindow, clipboard, dialog, ipcMain, shell, type WebContents } from 'electron';
 import { IpcChannel } from '@shared/ipc.js';
 import type { OpenSessionResult } from '@shared/types.js';
 import { parseTarget, requireString } from './targets.js';
@@ -719,7 +719,12 @@ export function registerIpc(): void {
     managerFor(event.sender).respondAuth(requireString(promptId, 'promptId'), values);
   });
 
-  handle(IpcChannel.platformInfo, () => ({ platform: process.platform }));
+  // The version comes from Electron rather than from an import of package.json, so a
+  // packaged build reports what it was actually built as.
+  handle(IpcChannel.platformInfo, () => ({
+    platform: process.platform,
+    version: app.getVersion(),
+  }));
 
   handle(IpcChannel.windowMinimize, (event) =>
     BrowserWindow.fromWebContents(event.sender)?.minimize(),

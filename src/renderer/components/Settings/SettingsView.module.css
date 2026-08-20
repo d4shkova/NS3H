@@ -224,3 +224,9 @@
   background: none;
   color: var(--text-tertiary);
 }
+
+/* About: a few lines of text rather than controls, so it reads as prose. */
+.about {
+  color: var(--text-secondary);
+  line-height: 1.6;
+}

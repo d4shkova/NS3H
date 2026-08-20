@@ -169,8 +169,8 @@ the pane.
 
 ## Settings
 
-Six groups behind a rail — Session logs, Appearance, Sidebar, Terminal, Security, Backup —
-rather than one column with everything in it. Each group is sized to fit a window without
+Seven groups behind a rail — Session logs, Appearance, Sidebar, Terminal, Security, Backup,
+About — rather than one column with everything in it. Each group is sized to fit a window without
 scrolling, so finding a control is reading six labels instead of scrolling past every section
 above the one you want. The rail says what is in each group, which is the part that does the
 work: "where is that setting" is answered on screen. Below about 560px of pane the rail sits

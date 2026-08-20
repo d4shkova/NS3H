@@ -43,7 +43,7 @@ export interface CredentialSecrets {
 }
 
 export interface Ns3hApi {
-  platform(): Promise<{ platform: string }>;
+  platform(): Promise<{ platform: string; version: string }>;
 
   config: {
     load(): Promise<ConfigSnapshot>;

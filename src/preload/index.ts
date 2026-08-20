@@ -55,7 +55,8 @@ const remoteHome = coalesce(
 );
 
 const api: Ns3hApi = {
-  platform: () => ipcRenderer.invoke(IpcChannel.platformInfo) as Promise<{ platform: string }>,
+  platform: () =>
+    ipcRenderer.invoke(IpcChannel.platformInfo) as Promise<{ platform: string; version: string }>,
 
   config: {
     load: () => ipcRenderer.invoke(IpcChannel.configLoad),
