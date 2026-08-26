@@ -10,6 +10,7 @@ import type { Host, SerialConfig } from '@shared/config.js';
 import { useConfig } from './config.js';
 import { viewAfterLastSession, type SidebarSection } from './pane.js';
 import { useTransfers } from './transfers.js';
+import { terminals } from '@renderer/terminals/registry.js';
 
 export type { SidebarSection };
 
@@ -182,6 +183,10 @@ export const useSessions = create<SessionState>((set, get) => ({
 
     try {
       await window.ns3h.session.reconnect(sessionId);
+      // The connection underneath is a new one, and it starts at the protocol default of
+      // 80x24. Nothing on screen changed, so the terminal would never mention its size
+      // again on its own — and the device would draw recalled lines to the wrong width.
+      terminals.invalidateSize(sessionId);
     } catch (cause) {
       set({ connectError: (cause as Error).message });
     }

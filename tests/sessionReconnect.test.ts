@@ -15,6 +15,11 @@ interface FakeConnection {
     onError(detail: string): void;
   };
   closed: boolean;
+  /** Every window size the manager pushed at this connection, in order. */
+  sizes: { cols: number; rows: number }[];
+  opened: boolean;
+  /** Whether a size arrived before `open` — where an SSH pty is sized. */
+  sizedBeforeOpen: boolean;
 }
 
 const connections: FakeConnection[] = [];
@@ -22,6 +27,9 @@ const connections: FakeConnection[] = [];
 vi.mock('../src/main/ssh/connection.js', () => ({
   SshConnection: class implements FakeConnection {
     closed = false;
+    sizes: { cols: number; rows: number }[] = [];
+    opened = false;
+    sizedBeforeOpen = false;
 
     constructor(
       readonly target: SshTarget,
@@ -31,10 +39,14 @@ vi.mock('../src/main/ssh/connection.js', () => ({
     }
 
     open(): Promise<void> {
+      this.opened = true;
       return Promise.resolve();
     }
     write(): void {}
-    resize(): void {}
+    resize(cols: number, rows: number): void {
+      if (!this.opened) this.sizedBeforeOpen = true;
+      this.sizes.push({ cols, rows });
+    }
     close(): void {
       this.closed = true;
     }
@@ -114,6 +126,45 @@ describe('reconnecting a session', () => {
 
     expect(statuses(sent)).toEqual(['connecting', 'connected', 'connecting']);
     expect(sent.some((entry) => entry.channel === 'session:data')).toBe(false);
+  });
+
+  it('tells a reconnected session how big the terminal already is', () => {
+    // A new connection starts at the protocol default of 80x24, and the renderer has no
+    // reason to mention the size again — nothing on its side resized. Without this the
+    // device believes the terminal is 80 columns wide while it is drawn much wider, and
+    // a long line recalled from the shell's history is drawn over the lines above it.
+    const { manager } = machine();
+    const sessionId = manager.openSsh(target(), { logging: false });
+    manager.resize(sessionId, 203, 51);
+
+    manager.reconnect(sessionId);
+
+    expect(connections[1].sizes).toEqual([{ cols: 203, rows: 51 }]);
+  });
+
+  it('applies the remembered size before the connection is opened', () => {
+    // Before, not after: an SSH session asks for its pty at open time, so a size that
+    // arrives a moment later costs a resize the device has to redraw for.
+    const { manager } = machine();
+    const sessionId = manager.openSsh(target(), { logging: false });
+    manager.resize(sessionId, 120, 30);
+    manager.reconnect(sessionId);
+
+    expect(connections[1].opened).toBe(true);
+    expect(connections[1].sizes).toEqual([{ cols: 120, rows: 30 }]);
+    expect(connections[1].sizedBeforeOpen).toBe(true);
+  });
+
+  it('forgets the size once the tab has gone', () => {
+    const { manager } = machine();
+    const sessionId = manager.openSsh(target(), { logging: false });
+    manager.resize(sessionId, 203, 51);
+    manager.close(sessionId);
+
+    // A new session under a fresh id starts from the protocol default, as it should.
+    const second = manager.openSsh(target(), { logging: false });
+    expect(second).not.toBe(sessionId);
+    expect(connections[1].sizes).toEqual([]);
   });
 
   it('refuses a session the tab has already been closed on', () => {

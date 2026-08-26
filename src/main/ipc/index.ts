@@ -19,9 +19,9 @@ import {
   listLogSessions,
 } from '../logging/browse.js';
 import { LogReader } from '../logging/reader.js';
-import { listLocal } from '../ssh/sftp.js';
+import { joinRemote, listLocal } from '../ssh/sftp.js';
 import { TransferHub, isTransferConnectionId } from '../files/hub.js';
-import type { FileTransport } from '../files/transport.js';
+import { capabilitiesOf, type FileTransport } from '../files/transport.js';
 import { TransferService, bundleFileName, configFileName } from '../transfer/index.js';
 import { randomBytes } from 'node:crypto';
 import type { SerialConfig } from '@shared/config.js';
@@ -342,6 +342,45 @@ function progressReporter(
   };
 }
 
+/**
+ * The renderer only offers what the transport reported it can do, so reaching here means
+ * either a stale menu or something that did not come from the pane at all.
+ */
+const NO_SUCH_OPERATION =
+  'This connection cannot do that — the protocol behind it has no such operation.';
+
+/**
+ * A file name, and only a name.
+ *
+ * Everything from the renderer is untrusted, and a rename that accepted a path would let
+ * a separator or a `..` move a file somewhere else on the device entirely. The pane asks
+ * for a name; this is where that is made true rather than assumed.
+ */
+function requireName(value: unknown): string {
+  const name = requireString(value, 'name').trim();
+  if (name === '.' || name === '..' || /[\\/]/.test(name) || name.length > 255) {
+    throw new Error(
+      'A name cannot contain a slash or be `.` or `..` — it names a file in the ' +
+        'directory that is open, not a path.',
+    );
+  }
+  return name;
+}
+
+/** The transport a file-operation request is aimed at, with the id checked first. */
+function remoteFor(event: { sender: WebContents }, connectionId: unknown): Promise<FileTransport> {
+  return transportFor(event.sender, requireString(connectionId, 'connectionId'));
+}
+
+/** POSIX permission bits as the user typed them: three or four octal digits. */
+function requireMode(value: unknown): number {
+  const text = requireString(value, 'mode').trim();
+  if (!/^[0-7]{3,4}$/.test(text)) {
+    throw new Error('Permissions are three or four octal digits, as in 644, 755 or 0640.');
+  }
+  return Number.parseInt(text, 8);
+}
+
 function registerConfigIpc(): void {
   handle(IpcChannel.configLoad, () => config().snapshot());
 
@@ -630,6 +669,46 @@ export function registerIpc(): void {
     });
     return result.canceled ? null : result.filePaths[0];
   });
+
+  handle(IpcChannel.transferRemoteCapabilities, async (event, connectionId: unknown) =>
+    capabilitiesOf(await remoteFor(event, connectionId)),
+  );
+
+  handle(
+    IpcChannel.transferRemoteRename,
+    async (event, connectionId: unknown, path: unknown, name: unknown) => {
+      const transport = await remoteFor(event, connectionId);
+      if (!transport.rename) throw new Error(NO_SUCH_OPERATION);
+      await transport.rename(requireString(path, 'path'), requireName(name));
+    },
+  );
+
+  handle(
+    IpcChannel.transferRemoteDelete,
+    async (event, connectionId: unknown, path: unknown, directory: unknown) => {
+      const transport = await remoteFor(event, connectionId);
+      if (!transport.remove) throw new Error(NO_SUCH_OPERATION);
+      await transport.remove(requireString(path, 'path'), directory === true);
+    },
+  );
+
+  handle(
+    IpcChannel.transferRemoteChmod,
+    async (event, connectionId: unknown, path: unknown, mode: unknown) => {
+      const transport = await remoteFor(event, connectionId);
+      if (!transport.chmod) throw new Error(NO_SUCH_OPERATION);
+      await transport.chmod(requireString(path, 'path'), requireMode(mode));
+    },
+  );
+
+  handle(
+    IpcChannel.transferRemoteMkdir,
+    async (event, connectionId: unknown, parent: unknown, name: unknown) => {
+      const transport = await remoteFor(event, connectionId);
+      if (!transport.mkdir) throw new Error(NO_SUCH_OPERATION);
+      await transport.mkdir(joinRemote(requireString(parent, 'parent'), requireName(name)));
+    },
+  );
 
   handle(
     IpcChannel.transferDownload,

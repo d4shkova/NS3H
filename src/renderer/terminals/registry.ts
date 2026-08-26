@@ -115,6 +115,12 @@ class TerminalRegistry {
 
     const typing = terminal.onData((data) => void window.ns3h.session.write(sessionId, data));
 
+    // The grid changing is the authoritative moment to tell the device, whoever caused
+    // it: a fit, a font change, or xterm reflowing on its own. Reporting from here as
+    // well as from `resize` means a size can never be applied locally and left unsent —
+    // which is what leaves the device drawing a recalled line at the wrong width.
+    const reflow = terminal.onResize(() => this.report(sessionId));
+
     // Selecting text copies it, the way a terminal emulator is expected to behave.
     // Copying on mouseup rather than on every selection change keeps one clipboard
     // write per gesture instead of one per pixel of drag.
@@ -159,6 +165,7 @@ class TerminalRegistry {
       element,
       dispose: () => {
         typing.dispose();
+        reflow.dispose();
         element.removeEventListener('mouseup', copySelection);
         element.removeEventListener('contextmenu', onContextMenu);
         offData();
@@ -191,7 +198,33 @@ class TerminalRegistry {
   resize(sessionId: string): void {
     const record = this.terminals.get(sessionId);
     if (!record || record.element.clientWidth === 0) return;
+    // `fit` fires `onResize` when the grid actually changes, which is what reports it;
+    // this call covers the first fit, where the measured size can equal the one xterm
+    // started with and no event is raised.
     record.fit.fit();
+    this.report(sessionId);
+  }
+
+  /**
+   * Forgets what the far end was told, so the next report goes out even though nothing
+   * on screen changed.
+   *
+   * Reconnecting is the case: the tab, the terminal and its grid all survive, but the
+   * connection underneath is a new one that starts at the protocol default of 80x24.
+   * Without this the renderer would stay quiet — it has the same size it always had —
+   * and the device would keep drawing to a terminal 80 columns wide.
+   */
+  invalidateSize(sessionId: string): void {
+    const record = this.terminals.get(sessionId);
+    if (!record) return;
+    record.reported = undefined;
+    this.report(sessionId);
+  }
+
+  /** Sends the terminal's current grid to the session, once per change. */
+  private report(sessionId: string): void {
+    const record = this.terminals.get(sessionId);
+    if (!record) return;
 
     const { cols, rows } = record.terminal;
     if (record.reported?.cols === cols && record.reported.rows === rows) return;

@@ -4,6 +4,7 @@ import { basename, join } from 'node:path';
 import { once } from 'node:events';
 import type { ClientChannel } from 'ssh2';
 import type { RemoteEntry, TransferProgress } from '@shared/transfer.js';
+import { siblingPath } from '../ssh/sftp.js';
 import { sortEntries, type FileTransport } from './transport.js';
 import {
   ScpChannel,
@@ -199,6 +200,34 @@ export class ScpTransport implements FileTransport {
       channel.end();
       throw error;
     }
+  }
+
+  /**
+   * The file operations, run as shell commands.
+   *
+   * SCP itself has no rename, delete or chmod — the protocol carries a file and nothing
+   * else. What is left is a command on a device that has a shell, which is the same bet
+   * the `ls` behind the listing makes: where browsing works, these work, and where it
+   * does not the pane is on typed paths and has no rows to offer a menu on anyway.
+   */
+  async rename(path: string, name: string): Promise<void> {
+    const target = quoteRemotePath(siblingPath(path, name));
+    await this.run(`mv ${quoteRemotePath(path)} ${target}`);
+  }
+
+  /** A directory has to be empty, as it is over SFTP: `rm -r` from a menu is not offered. */
+  async remove(path: string, directory: boolean): Promise<void> {
+    const quoted = quoteRemotePath(path);
+    await this.run(directory ? `rmdir ${quoted}` : `rm -f ${quoted}`);
+  }
+
+  async chmod(path: string, mode: number): Promise<void> {
+    // Padded to three digits: `chmod 44` is not `chmod 044`.
+    await this.run(`chmod ${mode.toString(8).padStart(3, '0')} ${quoteRemotePath(path)}`);
+  }
+
+  async mkdir(path: string): Promise<void> {
+    await this.run(`mkdir ${quoteRemotePath(path)}`);
   }
 
   close(): void {

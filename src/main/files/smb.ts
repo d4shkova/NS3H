@@ -22,6 +22,10 @@ interface SmbClient {
   createReadStream(path: string): Promise<Readable & { fileSize: number }>;
   createWriteStream(path: string): Promise<Writable>;
   stat(path: string): Promise<SmbStats>;
+  rename(oldPath: string, newPath: string): Promise<void>;
+  unlink(path: string): Promise<void>;
+  rmdir(path: string): Promise<void>;
+  mkdir(path: string): Promise<void>;
   disconnect(): void;
 }
 
@@ -171,9 +175,73 @@ export class SmbTransport implements FileTransport {
     return target;
   }
 
+  /**
+   * Renames in place. `replace` is left at its default, so an existing file of that name
+   * is a failure rather than a silent overwrite.
+   */
+  rename(path: string, name: string): Promise<void> {
+    return attempt(path, () =>
+      this.client.rename(toSmbPath(path), toSmbPath(joinShare(parentOf(path), name))),
+    );
+  }
+
+  remove(path: string, directory: boolean): Promise<void> {
+    const target = toSmbPath(path);
+    return attempt(path, () =>
+      directory ? this.client.rmdir(target) : this.client.unlink(target),
+    );
+  }
+
+  mkdir(path: string): Promise<void> {
+    return attempt(path, () => this.client.mkdir(toSmbPath(path)));
+  }
+
+  // No `chmod`: SMB carries DOS attributes and an ACL, not POSIX permission bits, which
+  // is also why the listing's permission column reads `dir` or `—` rather than `rwx`.
+
   close(): void {
     this.client.disconnect();
   }
+}
+
+/** Runs one file operation, turning a bare `STATUS_*` into something readable. */
+async function attempt<T>(path: string, run: () => Promise<T>): Promise<T> {
+  try {
+    return await run();
+  } catch (error) {
+    throw explainSmbFileError(error, path);
+  }
+}
+
+/**
+ * The failures a rename, delete or new folder actually runs into. Anything else is
+ * passed through with its status code intact rather than guessed at.
+ */
+export function explainSmbFileError(error: unknown, path: string): Error {
+  const code = (error as { code?: string })?.code ?? '';
+  const message = (error as Error)?.message ?? String(error);
+
+  switch (code) {
+    case 'STATUS_OBJECT_NAME_COLLISION':
+      return new Error(`There is already something called that next to ${path}.`);
+    case 'STATUS_OBJECT_NAME_NOT_FOUND':
+    case 'STATUS_OBJECT_PATH_NOT_FOUND':
+      return new Error(`${path} is not there any more — refresh the listing.`);
+    case 'STATUS_DIRECTORY_NOT_EMPTY':
+      return new Error(`${path} still has files in it. Empty it first.`);
+    case 'STATUS_ACCESS_DENIED':
+      return new Error(`The share refused that: no permission on ${path}.`);
+    case 'STATUS_SHARING_VIOLATION':
+      return new Error(`${path} is open on the server, so it cannot be changed right now.`);
+    default:
+      return new Error(`${path}: ${code || message}`);
+  }
+}
+
+/** The directory a share path is in, in the pane's own POSIX-ish notation. */
+function parentOf(path: string): string {
+  const trimmed = path.replace(/\/+$/, '');
+  return trimmed.slice(0, trimmed.lastIndexOf('/')) || '/';
 }
 
 /**

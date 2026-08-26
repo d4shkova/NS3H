@@ -13,6 +13,7 @@ import type {
   FileConnection,
   FileTargetInput,
   LocalEntry,
+  RemoteCapabilities,
   RemoteEntry,
   TransferEvent,
 } from './transfer.js';
@@ -120,6 +121,20 @@ export interface Ns3hApi {
     download(connectionId: string, remotePath: string, localDirectory: string): Promise<string>;
     upload(connectionId: string, localPath: string, remoteDirectory: string): Promise<string>;
     chooseDirectory(): Promise<string | null>;
+
+    /**
+     * Which of the operations below this connection can actually carry. The pane asks
+     * once per connection and offers only what comes back, rather than showing a menu
+     * item that fails when it is clicked.
+     */
+    capabilities(connectionId: string): Promise<RemoteCapabilities>;
+    /** `name` is a name, not a path: the entry keeps the directory it is in. */
+    rename(connectionId: string, path: string, name: string): Promise<void>;
+    /** A directory has to be empty; nothing here deletes a tree. */
+    remove(connectionId: string, path: string, directory: boolean): Promise<void>;
+    /** Permissions as typed — three or four octal digits, as in `644` or `0755`. */
+    chmod(connectionId: string, path: string, mode: string): Promise<void>;
+    mkdir(connectionId: string, parent: string, name: string): Promise<void>;
     onProgress(handler: (event: TransferEvent) => void): Unsubscribe;
 
     /**

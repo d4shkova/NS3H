@@ -326,3 +326,78 @@ describe('listing over SCP', () => {
     expect(parseLsOutput(output, '/tmp')[0]?.name).toBe('old.cfg');
   });
 });
+
+describe('the file operations over SCP', () => {
+  /** Plays a device that runs the command, says nothing, and exits cleanly. */
+  const succeeds = (device: FakeDevice) => setImmediate(() => device.finishCommand(0));
+
+  it('renames in place, keeping the directory the file is in', async () => {
+    const device = new FakeDevice();
+    const { transport, commands } = transportFor(device);
+    succeeds(device);
+
+    await transport.rename('/var/tmp/old.cfg', 'new.cfg');
+
+    expect(commands).toEqual(['mv /var/tmp/old.cfg /var/tmp/new.cfg']);
+  });
+
+  it('quotes a name that a shell would otherwise read as syntax', async () => {
+    const device = new FakeDevice();
+    const { transport, commands } = transportFor(device);
+    succeeds(device);
+
+    await transport.rename('/var/tmp/old.cfg', 'a name; rm -rf /');
+
+    // The whole path is one single-quoted argument, so the semicolon is part of the
+    // name rather than the end of the command.
+    expect(commands).toEqual([`mv /var/tmp/old.cfg '/var/tmp/a name; rm -rf /'`]);
+  });
+
+  it('deletes a file with rm and a directory with rmdir', async () => {
+    const first = new FakeDevice();
+    const one = transportFor(first);
+    succeeds(first);
+    await one.transport.remove('/var/tmp/image.bin', false);
+    expect(one.commands).toEqual(['rm -f /var/tmp/image.bin']);
+
+    const second = new FakeDevice();
+    const two = transportFor(second);
+    succeeds(second);
+    // `rmdir`, not `rm -r`: a directory has to be empty, as it does over SFTP.
+    await two.transport.remove('/var/tmp/images', true);
+    expect(two.commands).toEqual(['rmdir /var/tmp/images']);
+  });
+
+  it('pads a mode to three digits', async () => {
+    const device = new FakeDevice();
+    const { transport, commands } = transportFor(device);
+    succeeds(device);
+
+    // `chmod 44` is not `chmod 044`, and the difference is every permission on the file.
+    await transport.chmod('/var/tmp/config', 0o44);
+
+    expect(commands).toEqual(['chmod 044 /var/tmp/config']);
+  });
+
+  it('creates a directory', async () => {
+    const device = new FakeDevice();
+    const { transport, commands } = transportFor(device);
+    succeeds(device);
+
+    await transport.mkdir('/var/tmp/images');
+
+    expect(commands).toEqual(['mkdir /var/tmp/images']);
+  });
+
+  it("passes the device's refusal on rather than reporting success", async () => {
+    const device = new FakeDevice();
+    const { transport } = transportFor(device);
+
+    setImmediate(() => {
+      device.stderr.push(Buffer.from('rmdir: /var/tmp/images: Directory not empty\n'));
+      device.finishCommand(1);
+    });
+
+    await expect(transport.remove('/var/tmp/images', true)).rejects.toThrow(/not empty/i);
+  });
+});

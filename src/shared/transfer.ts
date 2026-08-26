@@ -18,6 +18,21 @@ export interface LocalEntry {
   modified: string;
 }
 
+/**
+ * What the remote side can be asked to do beyond listing and transferring, decided by
+ * the transport rather than by the pane.
+ *
+ * SFTP does all of it. SMB has no POSIX mode to set. SCP has no file operations at all —
+ * what it can offer is a shell command on a device that has one, which is the same thing
+ * the `ls` behind its listing depends on.
+ */
+export interface RemoteCapabilities {
+  rename: boolean;
+  remove: boolean;
+  chmod: boolean;
+  mkdir: boolean;
+}
+
 export interface TransferProgress {
   transferred: number;
   total: number;

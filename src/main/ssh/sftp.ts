@@ -26,6 +26,18 @@ export function permissionString(mode: number): string {
   return text;
 }
 
+/**
+ * The path a file called `name` would have, alongside `path`.
+ *
+ * Renaming asks for a name, not a path — moving a file elsewhere is a different job with
+ * a different set of ways to go wrong — so the new name is placed in the directory the
+ * file is already in.
+ */
+export function siblingPath(path: string, name: string): string {
+  const parent = path.replace(/\/+$/, '').replace(/\/[^/]*$/, '');
+  return `${parent}/${name}`;
+}
+
 /** A remote path is joined POSIX-style regardless of what the client runs on. */
 export function joinRemote(base: string, segment: string): string {
   if (segment === '..') {
@@ -119,6 +131,54 @@ export class SftpSession {
 
     await pipeline(source, this.sftp.createWriteStream(target));
     return target;
+  }
+
+  /** Renames in place: the file keeps the directory it is in and takes a new name. */
+  rename(path: string, name: string): Promise<void> {
+    return new Promise((done, reject) => {
+      this.sftp.rename(path, siblingPath(path, name), (error) =>
+        error ? reject(new Error(`Could not rename ${path}: ${error.message}`)) : done(),
+      );
+    });
+  }
+
+  /**
+   * Deletes a file, or an empty directory.
+   *
+   * A directory with anything in it is refused by the device, and that refusal is passed
+   * on as it is: a recursive delete over SFTP is a walk of the tree issuing one unlink
+   * per file, and doing that from a menu item on a mistaken click is not worth the
+   * convenience.
+   */
+  remove(path: string, directory: boolean): Promise<void> {
+    return new Promise((done, reject) => {
+      const finish = (error: Error | null | undefined) =>
+        error ? reject(new Error(`Could not delete ${path}: ${error.message}`)) : done();
+      if (directory) this.sftp.rmdir(path, finish);
+      else this.sftp.unlink(path, finish);
+    });
+  }
+
+  chmod(path: string, mode: number): Promise<void> {
+    return new Promise((done, reject) => {
+      this.sftp.chmod(path, mode, (error) =>
+        error
+          ? reject(
+              new Error(
+                `Could not set the permissions on ${path}: ${error.message}`,
+              ),
+            )
+          : done(),
+      );
+    });
+  }
+
+  mkdir(path: string): Promise<void> {
+    return new Promise((done, reject) => {
+      this.sftp.mkdir(path, (error) =>
+        error ? reject(new Error(`Could not create ${path}: ${error.message}`)) : done(),
+      );
+    });
   }
 
   private size(path: string): Promise<number> {
