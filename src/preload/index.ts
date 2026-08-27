@@ -120,6 +120,16 @@ const api: Ns3hApi = {
     upload: (sessionId: string, localPath: string, remoteDirectory: string) =>
       ipcRenderer.invoke(IpcChannel.transferUpload, sessionId, localPath, remoteDirectory),
     chooseDirectory: () => ipcRenderer.invoke(IpcChannel.transferChooseDirectory),
+    capabilities: (connectionId: string) =>
+      ipcRenderer.invoke(IpcChannel.transferRemoteCapabilities, connectionId),
+    rename: (connectionId: string, path: string, name: string) =>
+      ipcRenderer.invoke(IpcChannel.transferRemoteRename, connectionId, path, name),
+    remove: (connectionId: string, path: string, directory: boolean) =>
+      ipcRenderer.invoke(IpcChannel.transferRemoteDelete, connectionId, path, directory),
+    chmod: (connectionId: string, path: string, mode: string) =>
+      ipcRenderer.invoke(IpcChannel.transferRemoteChmod, connectionId, path, mode),
+    mkdir: (connectionId: string, parent: string, name: string) =>
+      ipcRenderer.invoke(IpcChannel.transferRemoteMkdir, connectionId, parent, name),
     /**
      * The filesystem path behind a dropped `File`.
      *

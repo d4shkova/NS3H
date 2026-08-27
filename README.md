@@ -319,6 +319,32 @@ Two more things SCP does differently, both deliberate:
   `No space left` on a switch with a full flash appears once the whole image has crossed the
   wire. Nothing can be done about that — it is the protocol — but it is worth expecting.
 
+**A right-click on either pane is where the file operations are.** Each row used to carry a
+single arrow button — `←` on the device side, `→` on this one — which did the one thing it could,
+send the file the other way, and read as a back button while doing it. The menu says what it is
+offering and has room for the rest: download or upload, open a directory, rename, change
+permissions, delete, a new folder, copy the path, reveal a local file in the file manager, and
+refresh. Right-clicking the empty space below the rows opens the same menu without an entry in
+it, so a directory with nothing in it is not a dead end. Double-clicking a file transfers it, and
+double-clicking a directory opens it.
+
+**The menu offers what the protocol can carry, and nothing else.** A transport declares the
+operations it implements and the pane asks once per connection, rather than showing an item that
+fails when it is clicked. SFTP does all of it. SMB renames, deletes and creates directories but
+has no `chmod` — it carries DOS attributes and an ACL, not POSIX mode bits, which is also why its
+permission column reads `dir` or `—`. SCP has no file operations at all, so those are shell
+commands (`mv`, `rm`, `rmdir`, `chmod`, `mkdir`) — the same bet the `ls` behind its listing makes:
+where browsing works these work, and where it does not, the pane is on typed paths and has no
+rows to offer a menu on anyway.
+
+Two limits are deliberate. **Renaming takes a name, not a path** — the entry keeps the directory
+it is in; moving a file across a device is a different job with a different set of ways to go
+wrong. And **nothing here deletes a tree**: a directory has to be empty, because a recursive
+delete over SFTP is a walk of the tree issuing one unlink per file, and doing that from a menu
+item on a mistaken click is not a trade worth making. Names are checked in main as well as in the
+dialog — a rename that accepted a separator or a `..` would move a file somewhere else on the
+device entirely, and nothing from the renderer is trusted.
+
 **Files can be dragged in from the desktop.** Dropping them on the remote pane uploads them
 to whatever directory it is showing — including the typed path an unbrowsable SCP device falls
 back to. Several at once go one after another, and a folder among them fails on its own without
@@ -393,6 +419,15 @@ component: a pane can be unmounted mid-session at any moment.
 
 dockview only mounts the visible panel, so panes re-fit on their own resize, on layout change,
 and on re-attach — a terminal that is not re-fitted keeps a stale column count and wraps.
+
+**The device is told the window size by two routes, and main remembers it.** Fitting a pane
+reports the new grid, and so does xterm's own `onResize`, so a size can never be applied on
+screen and left unsent. Main keeps the last size for as long as the tab exists and hands it to
+the connection before it is opened. That second half is what fixes recalling a command with the
+up arrow drawing over the lines above it: a reconnect builds a new connection, which starts at
+the protocol default of 80x24, and the renderer has no reason to mention the size again because
+nothing on its side resized. The shell then wrapped a long recalled line at a width the terminal
+was not, and put the overflow where the previous output already was.
 
 **Right-clicking a tab offers Reconnect**, and the reconnect keeps the session id. That is the
 whole point: the tab, the terminal and its scrollback, and the pane it was dragged to all belong

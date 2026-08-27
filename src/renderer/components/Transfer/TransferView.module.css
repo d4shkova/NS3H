@@ -101,6 +101,19 @@
   color: var(--text-tertiary);
 }
 
+/* Where the row arrows used to be: the menu they were replaced by has to be findable,
+   and a right-click is not something a pane can advertise any other way. */
+.paneHint {
+  flex: 1;
+  font-size: 11px;
+  color: var(--text-tertiary);
+  text-align: right;
+  margin-right: 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .paneHead button {
   font-size: 11.5px;
   color: var(--text-secondary);
@@ -169,25 +182,6 @@
 .size {
   width: 70px;
   text-align: right;
-}
-
-.send {
-  flex: none;
-  color: var(--accent);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 0 7px;
-  font-size: 12px;
-}
-
-.send:hover:not(:disabled) {
-  background: var(--accent-muted);
-  border-color: var(--accent);
-}
-
-.send:disabled {
-  color: var(--text-tertiary);
-  cursor: not-allowed;
 }
 
 .transfers {

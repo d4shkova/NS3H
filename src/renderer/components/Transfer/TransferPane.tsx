@@ -1,6 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { LocalEntry, RemoteEntry, TransferEvent } from '@shared/transfer.js';
+import type {
+  LocalEntry,
+  RemoteCapabilities,
+  RemoteEntry,
+  TransferEvent,
+} from '@shared/transfer.js';
 import { sourceIdFor, useTransfers, type TransferTab } from '@renderer/stores/transfers.js';
+import { FileMenu, type FileMenuItem, type FileMenuState } from './FileMenu.js';
+import { FileDialog, type FileDialogState } from './FileDialog.js';
+import { modeProblem, nameProblem, octalFromPermissions } from './fileActions.js';
 import styles from './TransferView.module.css';
 
 function formatBytes(bytes: number): string {
@@ -37,6 +45,18 @@ export function TransferPane({ tab }: { tab: TransferTab }): JSX.Element {
   const [dropping, setDropping] = useState(false);
   const [manualPath, setManualPath] = useState('');
   const [transfers, setTransfers] = useState<TransferEvent[]>([]);
+  const [menu, setMenu] = useState<FileMenuState | null>(null);
+  const [dialog, setDialog] = useState<FileDialogState | null>(null);
+  /**
+   * What this connection can do beyond listing and transferring. Nothing until the far
+   * end has answered, so a menu opened in that moment offers only what always works.
+   */
+  const [can, setCan] = useState<RemoteCapabilities>({
+    rename: false,
+    remove: false,
+    chmod: false,
+    mkdir: false,
+  });
   /**
    * How many transfers are in flight, not whether one is. Dropping a second batch while
    * the first is still going is legitimate, and a plain boolean would let whichever
@@ -125,6 +145,24 @@ export function TransferPane({ tab }: { tab: TransferTab }): JSX.Element {
     });
   }, [loadLocal, loadRemote, local.path, sourceId, tab.path]);
 
+  // Asked once per connection: what a protocol can do does not change while it is open.
+  useEffect(() => {
+    let current = true;
+    void window.ns3h.transfer
+      .capabilities(sourceId)
+      .then((reported) => {
+        if (current) setCan(reported);
+      })
+      .catch(() => {
+        // A connection that cannot answer gets the menu it would have had before any of
+        // this existed: download, upload, and navigation.
+        if (current) setCan({ rename: false, remove: false, chmod: false, mkdir: false });
+      });
+    return () => {
+      current = false;
+    };
+  }, [sourceId]);
+
   const download = async (entry: RemoteEntry) => {
     started();
     setError(null);
@@ -186,6 +224,153 @@ export function TransferPane({ tab }: { tab: TransferTab }): JSX.Element {
     await uploadPaths(paths);
   };
 
+  const refreshRemote = () => {
+    if (tab.path) void loadRemote(tab.path);
+  };
+
+  /**
+   * Runs one file operation and reloads the pane behind it.
+   *
+   * The failure is thrown on rather than caught: the dialog that asked for the name is
+   * still open, and showing it there — beside the box that needs the change — beats
+   * closing it and putting the reason at the top of the pane.
+   */
+  const operate = async (run: () => Promise<void>) => {
+    await run();
+    refreshRemote();
+  };
+
+  const renameEntry = (entry: RemoteEntry) =>
+    setDialog({
+      title: `Rename ${entry.name}`,
+      input: {
+        label: 'New name',
+        value: entry.name,
+        validate: nameProblem,
+        hint: 'The entry keeps the directory it is in.',
+      },
+      confirmLabel: 'Rename',
+      onConfirm: (name) =>
+        operate(() => window.ns3h.transfer.rename(sourceId, entry.path, name)),
+    });
+
+  const chmodEntry = (entry: RemoteEntry) =>
+    setDialog({
+      title: `Permissions for ${entry.name}`,
+      body: entry.permissions ? `Currently ${entry.permissions}.` : undefined,
+      input: {
+        label: 'Mode',
+        value: octalFromPermissions(entry.permissions),
+        placeholder: '644',
+        validate: modeProblem,
+        hint: 'Octal, as in 644 for rw-r--r-- or 755 for rwxr-xr-x.',
+      },
+      confirmLabel: 'Apply',
+      onConfirm: (mode) => operate(() => window.ns3h.transfer.chmod(sourceId, entry.path, mode)),
+    });
+
+  const deleteEntry = (entry: RemoteEntry) =>
+    setDialog({
+      title: `Delete ${entry.name}?`,
+      body: entry.directory
+        ? `${entry.path} is deleted from the device. A directory has to be empty first — ` +
+          'nothing here deletes a tree.'
+        : `${entry.path} is deleted from the device. There is no undo and no recycle bin.`,
+      confirmLabel: 'Delete',
+      danger: true,
+      onConfirm: () =>
+        operate(() => window.ns3h.transfer.remove(sourceId, entry.path, entry.directory)),
+    });
+
+  const newFolder = () =>
+    setDialog({
+      title: 'New folder',
+      body: `Created in ${tab.path}.`,
+      input: { label: 'Name', value: '', validate: nameProblem },
+      confirmLabel: 'Create',
+      onConfirm: (name) => operate(() => window.ns3h.transfer.mkdir(sourceId, tab.path, name)),
+    });
+
+  /** The menu for a row on the device side, or for the empty space around the rows. */
+  const remoteMenu = (event: React.MouseEvent, entry?: RemoteEntry) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const items: FileMenuItem[] = [];
+    if (entry) {
+      if (entry.directory) {
+        items.push({ label: 'Open', onSelect: () => void loadRemote(entry.path) });
+      } else {
+        items.push({
+          label: 'Download to this computer',
+          disabled: busy,
+          onSelect: () => void download(entry),
+        });
+      }
+      if (can.rename) items.push({ label: 'Rename…', onSelect: () => renameEntry(entry) });
+      if (can.chmod) {
+        items.push({ label: 'Change permissions…', onSelect: () => chmodEntry(entry) });
+      }
+      if (can.remove) {
+        items.push({ label: 'Delete…', danger: true, onSelect: () => deleteEntry(entry) });
+      }
+      items.push({
+        label: 'Copy path',
+        separated: true,
+        onSelect: () => void window.ns3h.clipboard.write(entry.path),
+      });
+    }
+
+    // Not on a side that cannot be listed: SCP reports these because it has a shell to
+    // run them in, and a device with no `ls` has none of the rest of them either.
+    const canCreate = can.mkdir && tab.path !== '' && tab.browsable;
+    if (canCreate) items.push({ label: 'New folder…', separated: !entry, onSelect: newFolder });
+    items.push({ label: 'Refresh', separated: !entry && !canCreate, onSelect: refreshRemote });
+
+    setMenu({ x: event.clientX, y: event.clientY, subject: entry?.path ?? tab.path, items });
+  };
+
+  /** The same, for this computer. Nothing here changes a local file; it only sends one. */
+  const localMenu = (event: React.MouseEvent, entry?: LocalEntry) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const items: FileMenuItem[] = [];
+    if (entry) {
+      if (entry.directory) {
+        items.push({ label: 'Open', onSelect: () => void loadLocal(entry.path) });
+      } else {
+        items.push({
+          label: `Upload to ${tab.path || 'the device'}`,
+          disabled: busy || !tab.path,
+          onSelect: () => void uploadPaths([entry.path]),
+        });
+      }
+      items.push({
+        label: 'Show in file manager',
+        separated: true,
+        onSelect: () => void window.ns3h.shell.reveal(entry.path),
+      });
+      items.push({
+        label: 'Copy path',
+        onSelect: () => void window.ns3h.clipboard.write(entry.path),
+      });
+    }
+
+    items.push({
+      label: 'Change directory…',
+      separated: !entry,
+      onSelect: () => {
+        void window.ns3h.transfer.chooseDirectory().then((chosen) => {
+          if (chosen) void loadLocal(chosen);
+        });
+      },
+    });
+    items.push({ label: 'Refresh', onSelect: () => void loadLocal(local.path) });
+
+    setMenu({ x: event.clientX, y: event.clientY, subject: entry?.path ?? local.path, items });
+  };
+
   return (
     <>
       {error && (
@@ -212,6 +397,7 @@ export function TransferPane({ tab }: { tab: TransferTab }): JSX.Element {
         <section className={styles.pane}>
           <header className={styles.paneHead}>
             <span className={styles.paneTitle}>This computer</span>
+            <span className={styles.paneHint}>Right-click for options</span>
             <button
               type="button"
               onClick={async () => {
@@ -223,29 +409,26 @@ export function TransferPane({ tab }: { tab: TransferTab }): JSX.Element {
             </button>
           </header>
           <div className={styles.path}>{local.path}</div>
-          <div className={styles.list}>
+          {/* The empty space below the rows carries the pane's own menu, so a directory
+              with nothing in it is not a dead end. */}
+          <div className={styles.list} onContextMenu={(event) => localMenu(event)}>
             {local.entries.map((entry) => (
               <div
                 key={entry.path}
                 className={styles.row}
-                onDoubleClick={() => entry.directory && void loadLocal(entry.path)}
+                onContextMenu={(event) => localMenu(event, entry)}
+                onDoubleClick={() =>
+                  entry.directory ? void loadLocal(entry.path) : void uploadPaths([entry.path])
+                }
+                title={
+                  entry.directory ? 'Double-click to open' : `Double-click to upload to ${tab.path}`
+                }
               >
                 <span className={styles.name}>
                   {entry.directory ? '▸ ' : '   '}
                   {entry.name}
                 </span>
                 <span className={styles.size}>{entry.directory ? '' : formatBytes(entry.size)}</span>
-                {!entry.directory && (
-                  <button
-                    type="button"
-                    className={styles.send}
-                    disabled={busy}
-                    title={`Upload to ${tab.path}`}
-                    onClick={() => void uploadPaths([entry.path])}
-                  >
-                    →
-                  </button>
-                )}
               </div>
             ))}
           </div>
@@ -274,6 +457,7 @@ export function TransferPane({ tab }: { tab: TransferTab }): JSX.Element {
             <span className={styles.paneTitle}>
               {tab.kind === 'standalone' ? 'Remote' : 'Device'}
             </span>
+            <span className={styles.paneHint}>Right-click for options</span>
             <button
               type="button"
               disabled={!tab.browsable || !tab.path || tab.path === '/'}
@@ -337,24 +521,21 @@ export function TransferPane({ tab }: { tab: TransferTab }): JSX.Element {
             </div>
           )}
 
-          <div className={styles.list}>
+          <div className={styles.list} onContextMenu={(event) => remoteMenu(event)}>
             {remote.map((entry) => (
               <div
                 key={entry.path}
                 className={styles.row}
-                onDoubleClick={() => entry.directory && void loadRemote(entry.path)}
+                onContextMenu={(event) => remoteMenu(event, entry)}
+                onDoubleClick={() =>
+                  entry.directory ? void loadRemote(entry.path) : void download(entry)
+                }
+                title={
+                  entry.directory
+                    ? 'Double-click to open'
+                    : `Double-click to download to ${local.path}`
+                }
               >
-                {!entry.directory && (
-                  <button
-                    type="button"
-                    className={styles.send}
-                    disabled={busy}
-                    title={`Download to ${local.path}`}
-                    onClick={() => void download(entry)}
-                  >
-                    ←
-                  </button>
-                )}
                 <span className={styles.name}>
                   {entry.directory ? '▸ ' : '   '}
                   {entry.name}
@@ -368,6 +549,9 @@ export function TransferPane({ tab }: { tab: TransferTab }): JSX.Element {
           </div>
         </section>
       </div>
+
+      {menu && <FileMenu menu={menu} onDismiss={() => setMenu(null)} />}
+      {dialog && <FileDialog dialog={dialog} onClose={() => setDialog(null)} />}
 
       {transfers.length > 0 && (
         <div className={styles.transfers}>

@@ -136,6 +136,10 @@ export class StandaloneSftp implements FileTransport {
     remoteDirectory: string,
     onProgress: Parameters<SftpSession['upload']>[2],
   ) => this.session.upload(localPath, remoteDirectory, onProgress);
+  rename = (path: string, name: string) => this.session.rename(path, name);
+  remove = (path: string, directory: boolean) => this.session.remove(path, directory);
+  chmod = (path: string, mode: number) => this.session.chmod(path, mode);
+  mkdir = (path: string) => this.session.mkdir(path);
 
   close(): void {
     this.session.end();

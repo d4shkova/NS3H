@@ -88,6 +88,18 @@ export class SessionManager {
   private readonly sessions = new Map<string, Session>();
   /** Outlives the session it describes; see `SessionSpec`. */
   private readonly specs = new Map<string, SessionSpec>();
+  /**
+   * The last window size the renderer reported for each session, kept for as long as the
+   * tab does.
+   *
+   * A reconnect builds a brand new connection, which starts from the protocol default of
+   * 80x24 — and the renderer has no reason to send the size again, because from its side
+   * nothing resized. The device then believed the terminal was 80 columns wide while it
+   * was drawn much wider, and recalling a long line from the shell's history drew it over
+   * the lines above. Remembering the size here is what makes a reconnected session pick
+   * up at the width it already had.
+   */
+  private readonly sizes = new Map<string, { cols: number; rows: number }>();
   private readonly hostKeyPrompts = new Map<string, Pending<boolean>>();
   private readonly authPrompts = new Map<string, Pending<string[] | null>>();
 
@@ -176,6 +188,7 @@ export class SessionManager {
       pending: [],
       logging: options.logging,
     });
+    this.restoreSize(sessionId);
     this.emit(IpcChannel.sessionStatus, { sessionId, status: 'connecting' });
     void connection.open();
   }
@@ -243,6 +256,7 @@ export class SessionManager {
       pending: [],
       logging: options.logging,
     });
+    this.restoreSize(sessionId);
     this.emit(IpcChannel.sessionStatus, { sessionId, status: 'connecting' });
     connection.open();
   }
@@ -327,6 +341,7 @@ export class SessionManager {
       pending: [],
       logging: options.logging,
     });
+    this.restoreSize(sessionId);
     this.emit(IpcChannel.sessionStatus, { sessionId, status: 'connecting' });
     connection.open();
   }
@@ -426,6 +441,10 @@ export class SessionManager {
         sftp.download(remotePath, localDirectory, onProgress),
       upload: (localPath, remoteDirectory, onProgress) =>
         sftp.upload(localPath, remoteDirectory, onProgress),
+      rename: (path, name) => sftp.rename(path, name),
+      remove: (path, directory) => sftp.remove(path, directory),
+      chmod: (path, mode) => sftp.chmod(path, mode),
+      mkdir: (path) => sftp.mkdir(path),
       close: () => {},
     };
   }
@@ -461,13 +480,27 @@ export class SessionManager {
   }
 
   resize(sessionId: string, cols: number, rows: number): void {
+    if (cols < 1 || rows < 1) return;
+    this.sizes.set(sessionId, { cols, rows });
     this.sessions.get(sessionId)?.connection.resize(cols, rows);
+  }
+
+  /**
+   * Tells a freshly built connection how big its terminal already is, before it is
+   * opened — so an SSH session asks for a pty of the right size rather than resizing one
+   * moment later, and telnet negotiates the true window from the start.
+   */
+  private restoreSize(sessionId: string): void {
+    const size = this.sizes.get(sessionId);
+    if (!size) return;
+    this.sessions.get(sessionId)?.connection.resize(size.cols, size.rows);
   }
 
   close(sessionId: string): void {
     // Before the early return: a session that has already dropped still has a spec, and
     // this is the call that says the tab has gone and the target is not needed again.
     this.specs.delete(sessionId);
+    this.sizes.delete(sessionId);
     const session = this.sessions.get(sessionId);
     if (!session) return;
     session.connection.close();

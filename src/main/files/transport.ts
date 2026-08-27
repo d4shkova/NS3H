@@ -1,4 +1,4 @@
-import type { RemoteEntry, TransferProgress } from '@shared/transfer.js';
+import type { RemoteCapabilities, RemoteEntry, TransferProgress } from '@shared/transfer.js';
 
 /**
  * What the transfer pane needs from a remote side, whatever is carrying it.
@@ -22,6 +22,27 @@ export interface FileTransport {
     onProgress: (progress: TransferProgress) => void,
   ): Promise<string>;
   close(): void;
+
+  /**
+   * The file operations, all optional: a transport implements what its protocol can
+   * actually carry, and the pane asks `capabilitiesOf` which ones are there rather than
+   * offering a menu item that fails when it is clicked.
+   */
+  rename?(path: string, name: string): Promise<void>;
+  remove?(path: string, directory: boolean): Promise<void>;
+  /** `mode` is the POSIX permission bits, 0o000–0o7777. */
+  chmod?(path: string, mode: number): Promise<void>;
+  mkdir?(path: string): Promise<void>;
+}
+
+/** Which operations a transport implements. Derived, so the two cannot drift apart. */
+export function capabilitiesOf(transport: FileTransport): RemoteCapabilities {
+  return {
+    rename: typeof transport.rename === 'function',
+    remove: typeof transport.remove === 'function',
+    chmod: typeof transport.chmod === 'function',
+    mkdir: typeof transport.mkdir === 'function',
+  };
 }
 
 /** Directories first, then by name — the order both panes sort in. */
